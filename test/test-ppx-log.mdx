@@ -130,9 +130,6 @@ and it does throw if you're logging to the debug log
 ```ocaml
 # [%log.debug l_debug "this won't print or throw" ((let (_ : 'a) = failwith "error" in year) : int)] ; flush ()
 Exception: (Failure error)
-Raised at file "stdlib.ml", line 29, characters 22-33
-Called from unknown location
-Called from file "toplevel/toploop.ml", line 208, characters 17-27
 ```
 
 Time to try logging globally! Let's set up our global logger.
