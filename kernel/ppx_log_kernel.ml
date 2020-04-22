@@ -3,7 +3,7 @@ open Ppxlib
 let expand ~level ~loc ~path:_ log message_args =
   let loc = { loc with loc_ghost = true } in
   let sexp =
-    Ppx_sexp_message_expander.sexp_of_labelled_exprs ~omit_nil:true ~loc message_args
+    Ppx_sexp_message_expander.sexp_of_labelled_exprs ~omit_nil:false ~loc message_args
   in
   (* In order to use ppx_metaquot, we pass in a loc parameter to level. *)
   let level = level loc in
@@ -34,7 +34,7 @@ let ext name f =
 module Global = struct
   let expand ~level ~loc ~path message_args =
     let loc = { loc with loc_ghost = true } in
-    let sexp = Ppx_sexp_message_expander.expand ~omit_nil:true ~path message_args in
+    let sexp = Ppx_sexp_message_expander.expand ~omit_nil:false ~path message_args in
     let level = level loc in
     [%expr
       if Ppx_log_syntax.Global.would_log (Some [%e level])
