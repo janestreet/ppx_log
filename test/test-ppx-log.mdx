@@ -129,7 +129,7 @@ and it does throw if you're logging to the debug log
 
 ```ocaml
 # [%log.debug l_debug "this won't print or throw" ((let (_ : 'a) = failwith "error" in year) : int)] ; flush ()
-Exception: (Failure error)
+Exception: (Failure error).
 ```
 
 Time to try logging globally! Let's set up our global logger.
