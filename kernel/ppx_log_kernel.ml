@@ -8,7 +8,7 @@ let expand ~level ~loc ~path:_ log message_args =
   (* In order to use ppx_metaquot, we pass in a loc parameter to level. *)
   let level = level loc in
   [%expr
-    if (Ppx_log_syntax.would_log [%e log] (Some [%e level]) [@merlin.hide])
+    if Ppx_log_syntax.would_log [%e log] (Some [%e level]) [@merlin.hide]
     then Ppx_log_syntax.sexp ~level:[%e level] [%e log] [%e sexp]
     else Ppx_log_syntax.default]
 ;;
