@@ -15,7 +15,7 @@ How to add to your project
 First, add `ppx_log` to your jbuild:
 
 
-```ocaml
+```sexp
 (preprocess (pps (ppx_jane ... ppx_log)))
 ```
 
@@ -23,6 +23,13 @@ First, add `ppx_log` to your jbuild:
 If you have an `import.ml` file, then add `include Ppx_log_async` to use ppx_log
 with Async.Log. Otherwise, you can simply `open Ppx_log_async` in the files that you
 want to log.
+
+`ppx_log` can add source code position to each logged message,
+configurable at a library level by the `-log-source-position` switch:
+
+```sexp
+(preprocess (pps (ppx_jane ... ppx_log -log-source-position)))
+```
 
 Finally `[%log.debug]` to your heart's content!
 

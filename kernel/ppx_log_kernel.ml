@@ -1,7 +1,19 @@
 open Ppxlib
 
+let log_source_position = ref false
+
+let () =
+  Driver.add_arg
+    "-log-source-position"
+    (Set log_source_position)
+    ~doc:
+      " If set, adds a \"pos\" tag with a source code position to every logged message."
+;;
+
 let expand ~level ~loc ~path:_ log message_args =
   let loc = { loc with loc_ghost = true } in
+  let pos = Ppx_here_expander.lift_position ~loc in
+  let maybe_pos = if !log_source_position then [%expr Some [%e pos]] else [%expr None] in
   let sexp =
     Ppx_sexp_message_expander.sexp_of_labelled_exprs ~omit_nil:false ~loc message_args
   in
@@ -9,7 +21,7 @@ let expand ~level ~loc ~path:_ log message_args =
   let level = level loc in
   [%expr
     if Ppx_log_syntax.would_log [%e log] (Some [%e level]) [@merlin.hide]
-    then Ppx_log_syntax.sexp ~level:[%e level] [%e log] [%e sexp]
+    then Ppx_log_syntax.sexp ~level:[%e level] ?pos:[%e maybe_pos] [%e log] [%e sexp]
     else Ppx_log_syntax.default]
 ;;
 
@@ -34,11 +46,15 @@ let ext name f =
 module Global = struct
   let expand ~level ~loc ~path message_args =
     let loc = { loc with loc_ghost = true } in
+    let pos = Ppx_here_expander.lift_position ~loc in
+    let maybe_pos =
+      if !log_source_position then [%expr Some [%e pos]] else [%expr None]
+    in
     let sexp = Ppx_sexp_message_expander.expand ~omit_nil:false ~path message_args in
     let level = level loc in
     [%expr
       if Ppx_log_syntax.Global.would_log (Some [%e level])
-      then Ppx_log_syntax.Global.sexp ~level:[%e level] [%e sexp]
+      then Ppx_log_syntax.Global.sexp ~level:[%e level] ?pos:[%e maybe_pos] [%e sexp]
       else Ppx_log_syntax.Global.default]
   ;;
 

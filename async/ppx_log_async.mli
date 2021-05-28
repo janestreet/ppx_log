@@ -6,14 +6,14 @@ module Ppx_log_syntax : sig
 
   val default : unit
   val would_log : t -> Ppx_log_types.level option -> bool
-  val sexp : ?level:Ppx_log_types.level -> t -> Sexp.t -> unit
+  val sexp : ?level:Ppx_log_types.level -> ?pos:Lexing.position -> t -> Sexp.t -> unit
 
   module Global : sig
     type return_type = unit
 
     val default : unit
     val would_log : Ppx_log_types.level option -> bool
-    val sexp : ?level:Ppx_log_types.level -> Sexp.t -> unit
+    val sexp : ?level:Ppx_log_types.level -> ?pos:Lexing.position -> Sexp.t -> unit
   end
 end
 

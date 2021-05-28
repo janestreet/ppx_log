@@ -12,13 +12,15 @@ build: [
 depends: [
   "ocaml" {>= "4.08.0"}
   "async_unix"
+  "base"
   "core"
+  "ppx_here"
   "ppx_jane"
   "ppx_sexp_conv"
   "ppx_sexp_message"
   "sexplib"
   "dune"             {>= "2.0.0"}
-  "ppxlib"           {>= "0.15.0" & < "0.18.0"}
+  "ppxlib"           {>= "0.22.0"}
 ]
 synopsis: "Ppx_sexp_message-like extension nodes for lazily rendering log messages"
 description: "

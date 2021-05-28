@@ -14,7 +14,7 @@ which get transformed to
 
 ```
 if Ppx_log_syntax.would_log log (Some `Debug)
-then Ppx_log_syntax.sexp ~level:`Debug log [%message ARGS]
+then Ppx_log_syntax.sexp ~level:`Debug ?pos:None log [%message ARGS]
 else ()
 ```
 
@@ -22,7 +22,7 @@ and
 
 ```
 if Ppx_log_syntax.Global.would_log (Some `Debug)
-then Ppx_log_syntax.Global.sexp ~level:`Debug [%message ARGS]
+then Ppx_log_syntax.Global.sexp ~level:`Debug ?pos:None [%message ARGS]
 else ()
 ```
 
@@ -164,7 +164,7 @@ And if you prever to avoid global logging, open
 And any use of global logging will return a warning type:
 
 ```ocaml
-# let `Do_not_use_because_it_will_not_log = [%log.global.error "this should not log"]; 
+# let `Do_not_use_because_it_will_not_log = [%log.global.error "this should not log"];
 # flush ();
 - : unit = ()
 ```
