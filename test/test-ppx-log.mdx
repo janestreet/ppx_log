@@ -33,16 +33,15 @@ extensions fails like so:
 
 ```ocaml
 # open Core;;
-# open Async;;
 # [%log.debug l_debug "wow"] ; flush ()
 Line 1, characters 1-27:
 Error: Unbound module Ppx_log_syntax
 ```
 
-We can open `Ppx_log_async` to provide a `Ppx_log_syntax`.
+We can open `Async` to provide a `Ppx_log_syntax`.
 
 ```ocaml
-# open Ppx_log_async;;
+# open Async;;
 ```
 
 Let's set up some useful functions for logging.
@@ -155,10 +154,10 @@ globally logged: (Error(year 2014))
 ```
 
 And if you prever to avoid global logging, open
-`Ppx_log_async.No_global` instead:
+`Async.Ppx_log_syntax.No_global` instead:
 
 ```ocaml
-# open Ppx_log_async.No_global;;
+# open Async.Ppx_log_syntax.No_global;;
 ```
 
 And any use of global logging will return a warning type:
@@ -170,4 +169,4 @@ And any use of global logging will return a warning type:
 ```
 
 For advanced users: the `Ppx_log_syntax` module can be overridden to
-customize behavior.  `Ppx_log_async.No_global` is an example of this.
+customize behavior.  `Async.Ppx_log_syntax.No_global` is an example of this.

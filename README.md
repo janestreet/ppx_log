@@ -12,23 +12,15 @@ to avoid the allocation of sexps that will never be logged.
 How to add to your project
 --------------------------
 
-First, add `ppx_log` to your jbuild:
-
-
-```sexp
-(preprocess (pps (ppx_jane ... ppx_log)))
-```
-
-
-If you have an `import.ml` file, then add `include Ppx_log_async` to use ppx_log
-with Async.Log. Otherwise, you can simply `open Ppx_log_async` in the files that you
-want to log.
+You can simply `open Async` in the files that you want to log with
+`Async.Log`.  Additionally, `open Async.Ppx_log_syntax.No_global` will
+prevent you from using `Log.Global` if you want to avoid the global log.
 
 `ppx_log` can add source code position to each logged message,
 configurable at a library level by the `-log-source-position` switch:
 
 ```sexp
-(preprocess (pps (ppx_jane ... ppx_log -log-source-position)))
+(preprocess (pps (ppx_jane ... -log-source-position)))
 ```
 
 Finally `[%log.debug]` to your heart's content!

@@ -11,11 +11,8 @@ build: [
 ]
 depends: [
   "ocaml" {>= "4.08.0"}
-  "async_unix"
   "base"
-  "core_kernel"
   "ppx_here"
-  "ppx_jane"
   "ppx_sexp_conv"
   "ppx_sexp_message"
   "sexplib"

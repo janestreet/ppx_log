@@ -1,6 +1,5 @@
 open! Core
 open! Async
-open Ppx_log_async
 
 let log_output = Log.Output.stdout ~format:`Sexp_hum ()
 let create_log ~level = Log.create ~level ~output:[ log_output ] ~on_error:`Raise ()
@@ -16,7 +15,7 @@ let%expect_test "logs source position from opted-in library" =
       (message (Sexp "expect position in tags"))
       (tags
        ((pos
-         ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:6:23))))) |}];
+         ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:5:23))))) |}];
   return ()
 ;;
 
@@ -43,7 +42,7 @@ let%expect_test "globally logs source position from opted-in library" =
       (message (Sexp "expect position in tags"))
       (tags
        ((pos
-         ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:5:26))))) |}];
+         ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:4:26))))) |}];
   return ()
 ;;
 
