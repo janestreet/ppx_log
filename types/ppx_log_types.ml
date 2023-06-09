@@ -18,13 +18,13 @@ module type S = sig
   *)
   val would_log : t -> level option -> bool
   val default : return_type
-  val sexp : ?level:level -> ?pos:Source_code_position.t -> t -> Sexp.t -> return_type
+  val sexp : ?level:level -> ?tags:(string * string) list -> t -> Sexp.t -> return_type
 
   module Global : sig
     type return_type
 
     val would_log : level option -> bool
     val default : return_type
-    val sexp : ?level:level -> ?pos:Source_code_position.t -> Sexp.t -> return_type
+    val sexp : ?level:level -> ?tags:(string * string) list -> Sexp.t -> return_type
   end
 end

@@ -127,6 +127,31 @@ and it does throw if you're logging to the debug log
 Exception: (Failure error).
 ```
 
+The same thing applies to tags. We'll need some new logs which want to print their tags.
+
+```ocaml
+let time_source = Synchronous_time_source.create ~now:Time_ns.epoch () |> Synchronous_time_source.read_only
+let tagged_l_debug = Log.create ~level:`Debug ~output:[ Log.Output.stdout () ] ~time_source ~on_error:`Raise ()
+let tagged_l_info = Log.create ~level:`Info ~output:[ Log.Output.stdout () ] ~time_source ~on_error:`Raise ()
+let tagged_flush () = Thread_safe.block_on_async_exn (fun () ->
+  Log.flushed tagged_l_debug
+  >>= fun () ->
+  Log.flushed tagged_l_info
+) ;;
+```
+
+Then, we don't raise if we don't print the tags!
+
+```ocaml
+# [%log.debug tagged_l_info "this won't print or throw" [@@tags [ "tag", failwith "error" ]]] ; flush ()
+- : unit = ()
+# [%log.debug tagged_l_debug "this will throw" [@@tags [ "tag", failwith "error" ]]] ; flush ()
+Exception: (Failure error).
+# [%log.debug tagged_l_debug "this won't throw" [@@tags [ "tag", "success" ]]] ; flush ()
+1969-12-31 19:00:00.000000-05:00 Debug "this won't throw" -- [tag: success]
+- : unit = ()
+```
+
 Time to try logging globally! Let's set up our global logger.
 
 ```ocaml
@@ -150,6 +175,23 @@ globally logged: (Info(year 2014))
 - : unit = ()
 # [%log.global.error "Error" (year : int)] ; flush ()
 globally logged: (Error(year 2014))
+- : unit = ()
+```
+
+And tags are handled in the global logger too.
+```ocaml
+# Log.Global.set_level `Info
+- : unit = ()
+# Log.Global.set_output [ Log.Output.stdout () ]
+- : unit = ()
+# Log.Global.set_time_source time_source
+- : unit = ()
+# [%log.global.debug "this won't print or throw" [@@tags [ "tag", failwith "error" ]]] ; flush ()
+- : unit = ()
+# [%log.global.info "this will throw" [@@tags [ "tag", failwith "error" ]]] ; flush ()
+Exception: (Failure error).
+# [%log.global.info "this won't throw" [@@tags [ "tag", "success" ]]] ; flush ()
+1969-12-31 19:00:00.000000-05:00 Info "this won't throw" -- [tag: success]
 - : unit = ()
 ```
 
