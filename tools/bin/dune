@@ -1,0 +1,3 @@
+(executables (names switch_to_ppx_log)
+ (libraries async core_unix.command_unix switch_to_ppx_log_lib)
+ (preprocess (pps ppx_jane ppxlib.metaquot)))
