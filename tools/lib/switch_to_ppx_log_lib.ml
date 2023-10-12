@@ -41,16 +41,24 @@ end
 module Labelled_arg = struct
   type t = expression * [ `Mandatory | `Optional ]
 
+  let to_attribute name expr =
+    Ast_builder.(attribute ~name:(Located.mk name) ~payload:(PStr [ pstr_eval expr [] ]))
+  ;;
+
   (* ~name:expr -> [@@name (Some expr)]
      ?name:expr -> [@@name expr] *)
-  let to_attribute ((expr, label_kind) : t) ~name =
-    let open Ast_builder in
-    let expr =
-      match label_kind with
-      | `Optional -> expr
-      | `Mandatory -> [%expr Some [%e expr]]
-    in
-    attribute ~name:(Located.mk name) ~payload:(PStr [ pstr_eval expr [] ])
+  let to_optional_attribute ((expr, label_kind) : t) ~name =
+    (match label_kind with
+     | `Optional -> expr
+     | `Mandatory -> [%expr Some [%e expr]])
+    |> to_attribute name
+  ;;
+
+  let to_mandatory_attribute ((expr, label_kind) : t) ~default ~name =
+    (match label_kind with
+     | `Optional -> [%expr Option.value [%e expr] ~default:[%e default]]
+     | `Mandatory -> expr)
+    |> to_attribute name
   ;;
 end
 
@@ -120,7 +128,7 @@ module Callsite_level = struct
 
   let extension_attribute t =
     match t with
-    | `Variable level -> Some (Labelled_arg.to_attribute level ~name:"level")
+    | `Variable level -> Some (Labelled_arg.to_optional_attribute level ~name:"level")
     | `Fixed (`Debug | `Error | `Info) | `Unspecified -> None
   ;;
 end
@@ -200,8 +208,10 @@ module Log_callsite = struct
     }
 
   let extension_attributes t =
-    [ Option.map t.tags ~f:(Labelled_arg.to_attribute ~name:"tags")
-    ; Option.map t.time ~f:(Labelled_arg.to_attribute ~name:"time")
+    [ Option.map
+        t.tags
+        ~f:(Labelled_arg.to_mandatory_attribute ~name:"tags" ~default:[%expr []])
+    ; Option.map t.time ~f:(Labelled_arg.to_optional_attribute ~name:"time")
     ; Callsite_level.extension_attribute t.level
     ]
     |> List.filter_opt
@@ -290,10 +300,7 @@ module Arg_list = struct
 end
 
 let parse_sexp_record_args args =
-  (* [%sexp ... { f1 : t1; f2 : t2; ... }] -> [%log ... (f1 : t1) (f2 : t2) ...]
-
-     Note: The sexp form renders with an extra pair of parentheses, so we need to account
-     for that in the log statement for backwards-compatibility. *)
+  (* [%sexp ... { f1 : t1; f2 : t2; ... }] -> [%log ... (f1 : t1) (f2 : t2) ...] *)
   List.map args ~f:(fun (id, field_expr) ->
     let name = String.concat ~sep:"." (Longident.flatten_exn id.txt) in
     match field_expr with
@@ -317,8 +324,8 @@ let parse_sexp_tuple_args args =
 let parse_sexp_callsite_args ~callsite_desc = function
   | [%expr [%message [%e? message]]] ->
     (match message.pexp_desc with
-     | Pexp_apply (expr, args) -> Ok (Arg_list.create expr args)
-     | _ -> Ok (Arg_list.create message []))
+     | Pexp_apply (expr, args) -> Ok (Arg_list.create expr args, None)
+     | _ -> Ok (Arg_list.create message [], None))
   | [%expr [%sexp [%e? sexp_arg]]] ->
     let nonstandard_sexp_arg () =
       (* Log.Global.sexp [%sexp ...] for a more complex expression in [%sexp] becomes
@@ -332,9 +339,10 @@ let parse_sexp_callsite_args ~callsite_desc = function
     in
     (match sexp_arg.pexp_desc with
      (* Log.Global.sexp [%sexp "literal"] -> [%log "literal"]*)
-     | Pexp_constant _ -> Ok (Arg_list.create sexp_arg [])
+     | Pexp_constant _ -> Ok (Arg_list.create sexp_arg [], None)
      (* Log.Global.sexp [%sexp (string_var : string)] -> [%log string_var] *)
-     | Pexp_constraint (string_var, [%type: string]) -> Ok (Arg_list.create string_var [])
+     | Pexp_constraint (string_var, [%type: string]) ->
+       Ok (Arg_list.create string_var [], None)
      (* [%sexp "literal", ...], [%sexp (variable : string), ...], [%sexp [%string ...], ...] *)
      | Pexp_tuple
          (( ({ pexp_desc = Pexp_constant (Pconst_string _); _ } as string_expr)
@@ -344,21 +352,27 @@ let parse_sexp_callsite_args ~callsite_desc = function
        let tags =
          match exprs with
          | [ { pexp_desc = Pexp_record (fields, None); _ } ] ->
+           (* [%sexp msg, { ... }] -> [%log msg ...]
+
+              Note: The sexp form renders with an extra pair of parentheses, so we need to
+              account for that in the log statement for backwards-compatibility. *)
            parse_sexp_record_args fields
-         | exprs -> parse_sexp_tuple_args exprs
+           |> Result.map ~f:(fun tags -> tags, Some `Legacy_tag_parentheses)
+         | exprs -> parse_sexp_tuple_args exprs |> Result.map ~f:(fun tags -> tags, None)
        in
        (match tags with
-        | Ok tags -> Ok (Arg_list.create string_expr tags)
+        | Ok (tags, maybe_extra_attr) ->
+          Ok (Arg_list.create string_expr tags, maybe_extra_attr)
         | Error `Unexpected_sexp_tag_arg -> nonstandard_sexp_arg ())
      (* [%sexp (a1 : t1), ~~(a2 : t2), ...] -> [%log "" ~_:(a1 : t1) (a2 : t2) ...] *)
      | Pexp_tuple exprs ->
        (match parse_sexp_tuple_args exprs with
-        | Ok args -> Ok (Arg_list.create [%expr ""] args)
+        | Ok args -> Ok (Arg_list.create [%expr ""] args, None)
         | Error `Unexpected_sexp_tag_arg -> nonstandard_sexp_arg ())
      (* [%sexp { a1 : t1; a2 : t2; ...}] -> [%log (a1 : t1) (a2 : t2) ...] *)
      | Pexp_record (fields, None) ->
        (match parse_sexp_record_args fields with
-        | Ok args -> Ok (Arg_list.create [%expr ""] args)
+        | Ok args -> Ok (Arg_list.create [%expr ""] args, Some `Legacy_tag_parentheses)
         | Error `Unexpected_sexp_tag_arg -> nonstandard_sexp_arg ())
      (* Log.Global.sexp [%sexp (expr : typ)] -> [%log.sexp (expr : typ)] *)
      | Pexp_constraint (expr, typ) ->
@@ -371,12 +385,13 @@ let parse_callsite_exn format positional_args ~callsite_desc =
   match format, positional_args with
   | Callsite_kind.Sexp, [ single_arg ] ->
     (match parse_sexp_callsite_args single_arg ~callsite_desc with
-     | Ok arg_list -> Extension_kind.Message, arg_list
-     | Error (`Use_sexp_extension arg) -> Sexp, Arg_list.create arg [])
+     | Ok (arg_list, maybe_extra_attr) ->
+       Extension_kind.Message, arg_list, maybe_extra_attr
+     | Error (`Use_sexp_extension arg) -> Sexp, Arg_list.create arg [], None)
     |> Ok
-  | Printf, hd :: tl -> (Format, Arg_list.create_unlabelled hd tl) |> Ok
+  | Printf, hd :: tl -> (Format, Arg_list.create_unlabelled hd tl, None) |> Ok
   | String, [ single_arg ] ->
-    (Extension_kind.Message, Arg_list.create single_arg []) |> Ok
+    (Extension_kind.Message, Arg_list.create single_arg [], None) |> Ok
   | kind, [] ->
     Error
       (`Too_few_positional_args
@@ -406,7 +421,7 @@ let parse_callsite_exn format positional_args ~is_global ~callsite_desc =
               (callsite_desc : Sexp.t)])
     | false, log_arg :: tl -> Ok (Some log_arg, tl)
   in
-  let%map format, extension_args =
+  let%map format, extension_args, maybe_extra_attribute =
     parse_callsite_exn format positional_args ~callsite_desc
   in
   let extension_args =
@@ -414,7 +429,11 @@ let parse_callsite_exn format positional_args ~is_global ~callsite_desc =
     | None -> extension_args
     | Some arg -> Arg_list.prepend_arg extension_args arg
   in
-  format, extension_args
+  format, extension_args, maybe_extra_attribute
+;;
+
+let legacy_tag_parentheses_attr =
+  Ast_builder.(attribute ~name:(Located.mk "legacy_tag_parentheses") ~payload:(PStr []))
 ;;
 
 let parse editor ~actually_transform =
@@ -443,9 +462,14 @@ let parse editor ~actually_transform =
       match
         parse_callsite_exn format log_callsite.positional_args ~is_global ~callsite_desc
       with
-      | Ok (kind, extension_args) ->
+      | Ok (kind, extension_args, maybe_extra_attr) ->
         let name = Callsite_level.extension_name log_callsite.level kind ~is_global in
         let payload = Arg_list.to_expression extension_args in
+        let attrs =
+          match maybe_extra_attr with
+          | None -> attrs
+          | Some `Legacy_tag_parentheses -> legacy_tag_parentheses_attr :: attrs
+        in
         let extension =
           Ast_builder.(pexp_extension (Located.mk name, PStr [ pstr_eval payload attrs ]))
         in
@@ -491,6 +515,7 @@ let () =
   Log.Global.sexp ~level:`Debug ~time ~tags:my_tags [%message "hello"];
   (* Places where [level] and [time] are variable are few / generally only log wrappers. *)
   Log.Global.sexp ~level:my_level ?time ~tags:my_tags [%message "hello"];
+  Log.Global.sexp ?tags:my_tags [%message "hello"];
 
   Log.Global.printf "hello world";
   Log.Global.printf "hello world %s" i;
@@ -525,11 +550,11 @@ let () =
   [%expect
     {|
     ("Callsite was passed as argument to other function"
-     ((loc file.ml:41) (expr Log.Global.info_s)))
+     ((loc file.ml:42) (expr Log.Global.info_s)))
     ("Log invocation has no positional args" (kind Sexp)
-     ((loc file.ml:42) (expr "Log.info_s (my log)")))
+     ((loc file.ml:43) (expr "Log.info_s (my log)")))
     ("Non-global log statement unexpectedly has no positional args"
-     (callsite_desc ((loc file.ml:43) (expr "Log.info_s ~time:Time_ns.epoch")))) |}];
+     (callsite_desc ((loc file.ml:44) (expr "Log.info_s ~time:Time_ns.epoch")))) |}];
   print_endline result;
   [%expect
     {|
@@ -547,13 +572,16 @@ let () =
     [%log.global.info_sexp error_sexp];
     [%log.global.info "message" ~_:(host : Hostname.t) (error : Error.t)];
     [%log.global.info my_message ~_:(host : Hostname.t)];
-    [%log.global.info my_message ~host:(host : Hostname.t)];
-    [%log.global.info ([%string "hello %d" 1]) ~host:(host : Hostname.t)];
+    [%log.global.info
+    my_message ~host:(host : Hostname.t)[@@legacy_tag_parentheses ]];
+    [%log.global.info
+    ([%string "hello %d" 1]) ~host:(host : Hostname.t)[@@legacy_tag_parentheses
+                                                        ]];
 
-    [%log.global.debug "hello"[@@tags Some my_tags][@@time Some time]];
+    [%log.global.debug "hello"[@@tags my_tags][@@time Some time]];
     (* Places where [level] and [time] are variable are few / generally only log wrappers. *)
-    [%log.global
-    "hello"[@@tags Some my_tags][@@time time][@@level Some my_level]];
+    [%log.global "hello"[@@tags my_tags][@@time time][@@level Some my_level]];
+    [%log.global "hello"[@@tags Option.value my_tags ~default:[]]];
 
     [%log.global.format "hello world"];
     [%log.global.format "hello world %s" i];
@@ -568,10 +596,11 @@ let () =
     [%log.info_sexp (my log) error_sexp];
     [%log.info (my log) "message" ~_:(host : Hostname.t) (error : Error.t)];
     [%log.info (my log) my_message ~_:(host : Hostname.t)];
-    [%log.info (my log) my_message ~host:(host : Hostname.t)];
+    [%log.info
+    (my log) my_message ~host:(host : Hostname.t)[@@legacy_tag_parentheses ]];
     [%log.info (my log) "" ~_:(a b : int) ~_:(b : int)];
-    [%log.info (my log) "" ~a:(a : int) ~b:(b : int)];
-    [%log.info (my log) "" ~a:123];
+    [%log.info (my log) "" ~a:(a : int) ~b:(b : int)[@@legacy_tag_parentheses ]];
+    [%log.info (my log) "" ~a:123[@@legacy_tag_parentheses ]];
 
     do_thing ~log:(((Log.Global.info_s)[@alert "-legacy"])) ;
     do_thing ~log:(((Log.info_s)[@alert "-legacy"]) (my log)) ;

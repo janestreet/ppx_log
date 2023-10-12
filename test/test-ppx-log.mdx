@@ -195,7 +195,29 @@ Exception: (Failure error).
 - : unit = ()
 ```
 
-And if you prever to avoid global logging, open
+Additionally, for compatibility with async log, there are additional parameters for
+printing sexps directly, printing format strings, specifying a dynamic level or time, as
+well as printing with extra parentheses.
+
+```ocaml
+# let s = [%sexp (1234 : int)] in [%log.global.sexp s] ; flush ()
+1969-12-31 19:00:00.000000-05:00 1234
+- : unit = ()
+# [%log.global.info_format "hello %s" "world"] ; flush ()
+1969-12-31 19:00:00.000000-05:00 Info hello world
+- : unit = ()
+# [%log.global "hello" [@@time (Some Time_float.epoch)] [@@level Some `Error]] ; flush ()
+1969-12-31 19:00:00.000000-05:00 Error hello
+- : unit = ()
+# [%log.global "hello" (3 : int)]
+- : unit = ()
+# [%log.global "hello" (3 : int) [@@legacy_tag_parentheses]] ; flush ()
+1969-12-31 19:00:00.000000-05:00 (hello(3 3))
+1969-12-31 19:00:00.000000-05:00 (hello((3 3)))
+- : unit = ()
+```
+
+And if you prefer to avoid global logging, open
 `Async.Ppx_log_syntax.No_global` instead:
 
 ```ocaml

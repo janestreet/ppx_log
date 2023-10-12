@@ -19,6 +19,10 @@ let tags_attr = single_expr_attr "tags"
 let time_attr = single_expr_attr "time"
 let level_attr = single_expr_attr "level"
 
+let legacy_add_extra_tag_parentheses_attr =
+  Attribute.declare "legacy_tag_parentheses" Pstr_eval Ast_pattern.(pstr nil) ()
+;;
+
 let parse_level_attr decl ~extension_name_level ~loc =
   match Attribute.get level_attr decl, extension_name_level with
   | None, None -> None
@@ -83,6 +87,54 @@ end
 
 let function_name_and_payload format extension_payload ~loc =
   match format with
+  | `Message_with_extra_tag_parentheses ->
+    (* For compatibility with [%sexp "message", { a1 : t1; a2 : t2 }] producing sexps
+       where the tags are in an extra layer of parentheses (message ((a1 .) (a2 .))), we
+       have this case.
+
+       [%message] has some magic in 2 cases:
+       - "" = Nothing at all. So:
+         [%message "hello" ~i:(3 : int) ~j:(3 : int)] -> (hello (i 3) (j 3))
+         [%message "" ~i:(3 : int) ~j:(3 : int)] -> ((i 3) (j 3))
+       - If the final output has format (<one-elt>), the outer parentheses are removed.
+         [%message "hello"] -> hello, NOT (hello)
+         [%message "" ~i:(3 : int)] -> (i 3), NOT ((i 3))
+       - However, [%message ""] = () = Sexp.List [].
+
+       This makes it hard to directly use [Ppx_sexp_message_expander]. Instead I think
+       it's most straightforward to feed the arguments in one by one, handle the first
+       argument explicitly, and add parens afterwards. *)
+    let expand e =
+      Ppx_sexp_message_expander.sexp_of_labelled_exprs [ e ] ~omit_nil:false ~loc
+    in
+    (match Extension_payload.to_args extension_payload with
+     | hd :: tl ->
+       let message, tags =
+         (* The first argument may be a tag, nothing, or a message. *)
+         match hd with
+         (* [%message "" ...] has "" ignored *)
+         | Nolabel, [%expr ""] -> None, tl
+         (* [%message (a : t1) (b : t2)] treats a and b both as tags *)
+         | (_, [%expr ([%e? _] : [%t? _])]) as hd -> None, hd :: tl
+         (* Otherwise, [%message [%e e]] treats e as a string (constant or expr). *)
+         | hd -> Some hd, tl
+       in
+       let tags =
+         match tags with
+         | [] -> None
+         | _ :: _ as tags ->
+           let tags = List.map tags ~f:expand |> Ast_builder.Default.elist ~loc in
+           Some [%expr Core.Sexp.List [%e tags]]
+       in
+       let sexp =
+         match message, tags with
+         | None, None -> [%expr Core.Sexp.List []]
+         | None, Some tags -> tags
+         | Some msg, None -> expand msg
+         | Some msg, Some tags -> [%expr Core.Sexp.List [ [%e expand msg]; [%e tags] ]]
+       in
+       `Sexp, [ Nolabel, sexp ]
+     | [] -> `Sexp, [ Nolabel, [%expr Core.Sexp.List []] ])
   | `Message ->
     let sexp =
       Extension_payload.to_args extension_payload
@@ -127,6 +179,14 @@ let expand ~loc ~path:_ level format log_kind decl args =
   let tags = tags decl ~loc in
   let level = parse_level_attr decl ~extension_name_level:level ~loc in
   let time = Attribute.get time_attr decl |> Option.map ~f:(fun e -> `Optional e) in
+  let format =
+    match format with
+    | `Message ->
+      (match Attribute.get legacy_add_extra_tag_parentheses_attr decl with
+       | None -> `Message
+       | Some () -> `Message_with_extra_tag_parentheses)
+    | format -> format
+  in
   let log, extension_payload =
     match log_kind with
     | `Global -> `Global, Extension_payload.Expression args

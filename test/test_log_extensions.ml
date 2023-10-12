@@ -36,3 +36,57 @@ let%expect_test "*_sexp and *_format extensions" =
   [%expect {| test |}];
   return ()
 ;;
+
+let%expect_test "legacy tag parentheses" =
+  Log.Global.For_testing.use_test_output ();
+  let test log expect =
+    log ();
+    let%map () = Log.Global.flushed () in
+    [%test_result: Sexp.t] ([%expect.output] |> Sexp.of_string) ~expect;
+    print_s expect
+  in
+  let%bind () =
+    test (fun () -> [%log.global "test" [@@legacy_tag_parentheses]]) [%sexp "test"]
+  in
+  [%expect {| test |}];
+  let i = 5 in
+  let%bind () =
+    test
+      (fun () -> [%log.global "test" (i : int) [@@legacy_tag_parentheses]])
+      [%sexp "test", { i : int }]
+  in
+  [%expect {| (test ((i 5))) |}];
+  let%bind () =
+    test
+      (fun () -> [%log.global "test" (i : int) (i : int) [@@legacy_tag_parentheses]])
+      [%sexp "test", { i : int; i : int }]
+  in
+  [%expect {| (test ((i 5) (i 5))) |}];
+  let%bind () =
+    test
+      (fun () -> [%log.global "" (i : int) (i : int) [@@legacy_tag_parentheses]])
+      [%sexp { i : int; i : int }]
+  in
+  [%expect {| ((i 5) (i 5)) |}];
+  let%bind () =
+    test
+      (fun () -> [%log.global "" (i : int) [@@legacy_tag_parentheses]])
+      [%sexp { i : int }]
+  in
+  [%expect {| ((i 5)) |}];
+  let%bind () =
+    test
+      (fun () -> [%log.global (i : int) [@@legacy_tag_parentheses]])
+      [%sexp { i : int }]
+  in
+  [%expect {| ((i 5)) |}];
+  let%bind () =
+    test
+      (fun () -> [%log.global (i : int) (i : int) [@@legacy_tag_parentheses]])
+      [%sexp { i : int; i : int }]
+  in
+  [%expect {| ((i 5) (i 5)) |}];
+  let%bind () = test (fun () -> [%log.global "" [@@legacy_tag_parentheses]]) [%sexp ()] in
+  [%expect {| () |}];
+  Deferred.unit
+;;
