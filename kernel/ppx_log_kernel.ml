@@ -83,6 +83,21 @@ module Extension_payload = struct
        | Pexp_apply (expr, args) -> (Nolabel, expr) :: args
        | (_ : expression_desc) -> [ Nolabel, expr ])
   ;;
+
+  let single_expression_or_error ~loc = function
+    | Args [ (Nolabel, expr) ] | Expression expr ->
+      (match expr.pexp_desc with
+       | Pexp_constraint (expr, typ) ->
+         let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ in
+         Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
+       | _ -> expr)
+    | (_ : t) ->
+      Ast_builder.Default.pexp_extension
+        ~loc
+        (Location.error_extensionf
+           ~loc
+           "Expected exactly one unlabelled argument as payload")
+  ;;
 end
 
 let function_name_and_payload format extension_payload ~loc =
@@ -144,23 +159,12 @@ let function_name_and_payload format extension_payload ~loc =
   | `Sexp ->
     (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t]. [%log.global.sexp (...
        : T.t)] uses [T.sexp_of_t]. *)
-    let payload =
-      match extension_payload with
-      | Args [ (Nolabel, expr) ] | Expression expr ->
-        (match expr.pexp_desc with
-         | Pexp_constraint (expr, typ) ->
-           let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ in
-           Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
-         | _ -> expr)
-      | _ ->
-        Ast_builder.Default.pexp_extension
-          ~loc
-          (Location.error_extensionf
-             ~loc
-             "[%%log.sexp] expects exactly one unlabelled argument for its payload")
-    in
+    let payload = Extension_payload.single_expression_or_error extension_payload ~loc in
     `Sexp, [ Nolabel, payload ]
   | `Printf -> `Printf, Extension_payload.to_args extension_payload
+  | `String ->
+    let payload = Extension_payload.single_expression_or_error extension_payload ~loc in
+    `Printf, [ Nolabel, [%expr "%s"]; Nolabel, payload ]
 ;;
 
 let tags decl ~loc =
@@ -228,28 +232,33 @@ let ext name level format log =
   Extension.declare name Extension.Context.expression pattern (expand level format log)
 ;;
 
-let () =
-  let extensions =
-    let open List.Let_syntax in
-    let%bind level_expr, level_str =
-      [ Some (fun ~loc -> [%expr `Debug]), Some "debug"
-      ; Some (fun ~loc -> [%expr `Info]), Some "info"
-      ; Some (fun ~loc -> [%expr `Error]), Some "error"
-      ; None, None
-      ]
-    in
-    let%bind format, format_suffix =
-      [ `Message, None; `Sexp, Some "sexp"; `Printf, Some "format" ]
-    in
-    let%map log, extension_prefix = [ `Instance, "@log"; `Global, "@log.global" ] in
-    let name =
-      match level_str, format_suffix with
-      | None, None -> extension_prefix
-      | None, Some suffix -> extension_prefix ^ "." ^ suffix
-      | Some level, None -> extension_prefix ^ "." ^ level
-      | Some level, Some suffix -> extension_prefix ^ "." ^ level ^ "_" ^ suffix
-    in
-    ext name level_expr format log
+let names_and_extensions =
+  let open List.Let_syntax in
+  let%bind level_expr, level_str =
+    [ Some (fun ~loc -> [%expr `Debug]), Some "debug"
+    ; Some (fun ~loc -> [%expr `Info]), Some "info"
+    ; Some (fun ~loc -> [%expr `Error]), Some "error"
+    ; None, None
+    ]
   in
-  Driver.register_transformation "log" ~extensions
+  let%bind format, format_suffix =
+    [ `Message, None; `Sexp, Some "sexp"; `Printf, Some "format"; `String, Some "string" ]
+  in
+  let%map log, extension_prefix = [ `Instance, "@log"; `Global, "@log.global" ] in
+  let name =
+    match level_str, format_suffix with
+    | None, None -> extension_prefix
+    | None, Some suffix -> extension_prefix ^ "." ^ suffix
+    | Some level, None -> extension_prefix ^ "." ^ level
+    | Some level, Some suffix -> extension_prefix ^ "." ^ level ^ "_" ^ suffix
+  in
+  name, ext name level_expr format log
 ;;
+
+let () =
+  Driver.register_transformation "log" ~extensions:(List.map names_and_extensions ~f:snd)
+;;
+
+module For_testing = struct
+  let extension_names = List.map names_and_extensions ~f:fst
+end

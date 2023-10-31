@@ -124,7 +124,16 @@ let test_extensions () =
        [@@ocaml.inline never] [@@ocaml.local never] [@@ocaml.specialise never]
        in
        ppx_sexp_message () [@nontail])
-  else Ppx_log_syntax.default
+  else Ppx_log_syntax.default;
+  if Ppx_log_syntax.Global.would_log None [@merlin.hide]
+  then Ppx_log_syntax.Global.printf ?tags:None "%s" (Int.to_string 3)
+  else Ppx_log_syntax.Global.default;
+  if Ppx_log_syntax.would_log log None [@merlin.hide]
+  then Ppx_log_syntax.printf ?tags:None log "%s" (Int.to_string 3)
+  else Ppx_log_syntax.default;
+  if Ppx_log_syntax.Global.would_log None [@merlin.hide]
+  then Ppx_log_syntax.Global.sexp ?tags:None (Int.sexp_of_t 3)
+  else Ppx_log_syntax.Global.default
 ;;
 
 let () = Ppx_inline_test_lib.unset_lib "ppx_log_test"

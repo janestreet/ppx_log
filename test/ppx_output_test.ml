@@ -20,5 +20,8 @@ let test_extensions () =
   [%log.sexp log (5 : int)];
   [%log.sexp log (generate_sexp ())];
   let my_level = Some `Debug in
-  [%log log "test" [@@time Some Time_float.epoch] [@@level my_level]]
+  [%log log "test" [@@time Some Time_float.epoch] [@@level my_level]];
+  [%log.global.string 3 |> Int.to_string];
+  [%log.string log (Int.to_string 3)];
+  [%log.global.sexp 3 |> Int.sexp_of_t]
 ;;

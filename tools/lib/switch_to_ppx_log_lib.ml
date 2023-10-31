@@ -14,12 +14,14 @@ module Extension_kind = struct
     | Message (* E.g., [%log.global.info], [%log.global] *)
     | Sexp (* E.g., [%log.global.info_sexp], [%log.global.sexp] *)
     | Format (* E.g., [%log.global.info_format], [%log.global.format] *)
+    | String (* [%log.global.string] *)
   [@@deriving enumerate, sexp_of]
 
   let to_suffix separator = function
     | Message -> ""
     | Sexp -> separator ^ "sexp"
     | Format -> separator ^ "format"
+    | String -> separator ^ "string"
   ;;
 end
 
@@ -73,7 +75,11 @@ module Callsite_level = struct
   end
 
   let extension_name (type arg) t kind ~is_global =
-    let global_str = if is_global then ".global" else "" in
+    let global_str =
+      match is_global with
+      | `Global -> ".global"
+      | `Instance -> ""
+    in
     match t with
     | `Fixed level ->
       "log" ^ global_str ^ "." ^ Level.to_string level ^ Extension_kind.to_suffix "_" kind
@@ -84,7 +90,7 @@ module Callsite_level = struct
   let%expect_test "extension names" =
     List.iter Extension_kind.all ~f:(fun kind ->
       List.iter (all [ () ]) ~f:(fun t ->
-        List.iter Bool.all ~f:(fun is_global ->
+        List.iter [ `Instance; `Global ] ~f:(fun is_global ->
           print_s
             [%sexp
               (t : _ t)
@@ -121,7 +127,17 @@ module Callsite_level = struct
       ((Variable _) Format log.format)
       ((Variable _) Format log.global.format)
       (Unspecified Format log.format)
-      (Unspecified Format log.global.format) |}]
+      (Unspecified Format log.global.format)
+      ((Fixed Info) String log.info_string)
+      ((Fixed Info) String log.global.info_string)
+      ((Fixed Debug) String log.debug_string)
+      ((Fixed Debug) String log.global.debug_string)
+      ((Fixed Error) String log.error_string)
+      ((Fixed Error) String log.global.error_string)
+      ((Variable _) String log.string)
+      ((Variable _) String log.global.string)
+      (Unspecified String log.string)
+      (Unspecified String log.global.string) |}]
   ;;
 
   type nonrec t = Labelled_arg.t t
@@ -180,22 +196,29 @@ module Callsite = struct
   ;;
 
   let replace t expr editor =
-    Refactor_editor.replace
+    Refactor_editor.replace_code_keeping_comments_exn
       editor
-      ~with_:(Pprintast.string_of_expression expr)
+      ~prefix:"("
+      ~suffix:[%string {|(%{expr}))|}]
       ~loc:(Refactor_syntax.Callsite.loc t)
   ;;
 
   let add_legacy_alert t editor ~cr =
-    let expr =
-      Ast_builder.pexp_apply
-        [%expr [%e Refactor_syntax.Callsite.fn t] [@alert "-legacy"]]
-        (Refactor_syntax.Callsite.args t)
+    let add () =
+      let expr =
+        Ast_builder.pexp_apply
+          [%expr [%e Refactor_syntax.Callsite.fn t] [@alert "-legacy"]]
+          (Refactor_syntax.Callsite.args t)
+      in
+      Refactor_editor.replace_code_keeping_comments_exn
+        editor
+        ~prefix:"("
+        ~suffix:[%string {|(%{Pprintast.string_of_expression expr}) )|}]
+        ~loc:(Refactor_syntax.Callsite.loc t)
     in
-    Refactor_editor.replace
-      editor
-      ~with_:[%string {|(%{Pprintast.string_of_expression expr}) |}]
-      ~loc:(Refactor_syntax.Callsite.loc t)
+    (* For now, we're not adding legacy alerts until we've mostly moved people over
+       already. *)
+    ignore (add : unit -> unit)
   ;;
 end
 
@@ -340,9 +363,16 @@ let parse_sexp_callsite_args ~callsite_desc = function
     (match sexp_arg.pexp_desc with
      (* Log.Global.sexp [%sexp "literal"] -> [%log "literal"]*)
      | Pexp_constant _ -> Ok (Arg_list.create sexp_arg [], None)
-     (* Log.Global.sexp [%sexp (string_var : string)] -> [%log string_var] *)
-     | Pexp_constraint (string_var, [%type: string]) ->
-       Ok (Arg_list.create string_var [], None)
+     (* Log.Global.sexp [%sexp (fn arg : string)] -> [%log.global.sexp (fn arg : string)]
+
+        Note you can't make it [%log.global (make_string arg)], as in the case below,
+        because an [apply] is treated as a list of args in the ppx (it would appear as if
+        'make_string' were a string, and 'arg' were a tag). *)
+     | Pexp_constraint ({ pexp_desc = Pexp_apply _; _ }, [%type: string]) ->
+       Error (`Use_sexp_extension sexp_arg)
+     (* Log.Global.sexp [%sexp (string_expr : string)] -> [%log.global string_expr] *)
+     | Pexp_constraint (string_expr, [%type: string]) ->
+       Ok (Arg_list.create string_expr [], None)
      (* [%sexp "literal", ...], [%sexp (variable : string), ...], [%sexp [%string ...], ...] *)
      | Pexp_tuple
          (( ({ pexp_desc = Pexp_constant (Pconst_string _); _ } as string_expr)
@@ -391,7 +421,7 @@ let parse_callsite_exn format positional_args ~callsite_desc =
     |> Ok
   | Printf, hd :: tl -> (Format, Arg_list.create_unlabelled hd tl, None) |> Ok
   | String, [ single_arg ] ->
-    (Extension_kind.Message, Arg_list.create single_arg [], None) |> Ok
+    (Extension_kind.String, Arg_list.create single_arg [], None) |> Ok
   | kind, [] ->
     Error
       (`Too_few_positional_args
@@ -412,14 +442,14 @@ let parse_callsite_exn format positional_args ~is_global ~callsite_desc =
   let open Result.Let_syntax in
   let%bind maybe_extra_extension_arg, positional_args =
     match is_global, positional_args with
-    | true, args -> Ok (None, args)
-    | false, [] ->
+    | `Global, args -> Ok (None, args)
+    | `Instance, [] ->
       Error
         (`Too_few_positional_args
           [%message
             "Non-global log statement unexpectedly has no positional args"
               (callsite_desc : Sexp.t)])
-    | false, log_arg :: tl -> Ok (Some log_arg, tl)
+    | `Instance, log_arg :: tl -> Ok (Some log_arg, tl)
   in
   let%map format, extension_args, maybe_extra_attribute =
     parse_callsite_exn format positional_args ~callsite_desc
@@ -436,48 +466,125 @@ let legacy_tag_parentheses_attr =
   Ast_builder.(attribute ~name:(Located.mk "legacy_tag_parentheses") ~payload:(PStr []))
 ;;
 
-let parse editor ~actually_transform =
+module Exported_log_module = struct
+  (* Represents what the exported [Log] module from a different file (different from the
+     current file) may point to. *)
+  type t =
+    | Global_log (* E.g., [Import.Log] may point to [Global_log] *)
+    | Async_log (* E.g., [Import.Log] may point to [Async.Log] *)
+    | Neither_async_nor_global_log (* E.g., [Import.Log] may point to [Concord_log] *)
+  [@@deriving sexp, enumerate]
+
+  (* If [file_editor] points to the contents for module [Module], this function determines
+     if [Module.Log] refers to [Async_log], [Async_log.Global], nothing at all, or
+     something else. *)
+  let determine file_editor =
+    let lid = Longident.parse in
+    let log = lid "Log" in
+    let initial_bindings =
+      [ [ log, `Not_defined ]
+      ; [ lid "Async.Log", `Async_log; lid "Async_log", `Async_log ]
+      ; [ lid "Async.Log.Global", `Global_log; lid "Async_log.Global", `Global_log ]
+      ]
+      |> List.concat
+      |> Bindings.of_alist_exn
+    in
+    let bindings = Bindings.process_ml_file_exn initial_bindings file_editor in
+    match Bindings.find bindings log with
+    | None -> Some Neither_async_nor_global_log
+    | Some `Async_log -> Some Async_log
+    | Some `Global_log -> Some Global_log
+    | Some `Not_defined -> None
+  ;;
+end
+
+let bindings ~exported_log_modules =
+  let lid = Longident.parse in
   let initial_bindings =
     Callsite_kind.all
     |> List.concat_map ~f:(fun (name, (level, kind)) ->
-         [ Longident.parse ("Async.Log.Global." ^ name), (level, kind, true)
-         ; Longident.parse ("Async.Log." ^ name), (level, kind, false)
+         [ lid ("Async_log.Global." ^ name), Ok (level, kind, `Global)
+         ; lid ("Async_log." ^ name), Ok (level, kind, `Instance)
          ])
-    |> Refactor_syntax.Bindings.of_alist_exn
   in
+  let shadows, async_log_aliases =
+    List.partition_map exported_log_modules ~f:(fun (`Module_name module_name, export) ->
+      let log_submodule = lid [%string {|%{module_name}.Log|}] in
+      match (export : Exported_log_module.t) with
+      | Neither_async_nor_global_log ->
+        First (log_submodule, Error `Shadowed__not_actually_async_log)
+      | Global_log -> Second (lid "Async_log.Global", log_submodule)
+      | Async_log -> Second (lid "Async_log", log_submodule))
+  in
+  let bindings = shadows @ initial_bindings |> Bindings.of_alist_exn in
+  List.fold async_log_aliases ~init:bindings ~f:(fun bindings (src, dst) ->
+    Bindings.with_alias bindings ~src ~dst)
+  |> Bindings.with_alias ~src:(lid "Async_log") ~dst:(lid "Async.Log")
+  |> Bindings.with_alias ~src:(lid "Async_log") ~dst:(lid "Kazoo_async.Log")
+;;
+
+let parse editor ~actually_transform ~exported_log_modules =
+  let initial_bindings = bindings ~exported_log_modules in
   let partial_application_cr =
-    "Consider passing a [Log.t] directly to use with [ppx_log], instead of passing one \
-     of the functions."
+    "Consider using [ppx_log] directly insteading of partially applying a log function \
+     in [Async_log]."
   in
   object
     inherit [_] Refactor_syntax.iter_callsites_of_bindings editor ~initial_bindings
 
-    method! callsite_of_binding
-      callsite
-      (_ : longident_loc)
-      (level_from_binding, format, is_global) =
-      let callsite_desc = [%sexp (callsite : Callsite.t)] in
-      let log_callsite = Log_callsite.create_exn callsite ~level_from_binding in
-      let attrs = Log_callsite.extension_attributes log_callsite in
-      match
-        parse_callsite_exn format log_callsite.positional_args ~is_global ~callsite_desc
-      with
-      | Ok (kind, extension_args, maybe_extra_attr) ->
-        let name = Callsite_level.extension_name log_callsite.level kind ~is_global in
-        let payload = Arg_list.to_expression extension_args in
-        let attrs =
-          match maybe_extra_attr with
-          | None -> attrs
-          | Some `Legacy_tag_parentheses -> legacy_tag_parentheses_attr :: attrs
-        in
-        let extension =
-          Ast_builder.(pexp_extension (Located.mk name, PStr [ pstr_eval payload attrs ]))
-        in
-        if actually_transform then Callsite.replace callsite extension editor
-      | Error (`Too_few_positional_args e) ->
-        print_s e;
-        if actually_transform
-        then Callsite.add_legacy_alert callsite editor ~cr:partial_application_cr
+    method! callsite_of_binding callsite (_ : longident_loc) =
+      function
+      | Error `Shadowed__not_actually_async_log -> ()
+      | Ok (level_from_binding, format, is_global) ->
+        let callsite_desc = [%sexp (callsite : Callsite.t)] in
+        let log_callsite = Log_callsite.create_exn callsite ~level_from_binding in
+        let attrs = Log_callsite.extension_attributes log_callsite in
+        (match
+           parse_callsite_exn
+             format
+             log_callsite.positional_args
+             ~is_global
+             ~callsite_desc
+         with
+         | Ok (kind, extension_args, maybe_extra_attr) ->
+           let name = Callsite_level.extension_name log_callsite.level kind ~is_global in
+           let payload = Arg_list.to_expression extension_args in
+           let attrs =
+             match maybe_extra_attr with
+             | None -> attrs
+             | Some `Legacy_tag_parentheses -> legacy_tag_parentheses_attr :: attrs
+           in
+           let extension =
+             Ast_builder.(
+               pexp_extension (Located.mk name, PStr [ pstr_eval payload attrs ]))
+             |> Pprintast.string_of_expression
+           in
+           let has_async_as_prefix =
+             match
+               Or_error.try_with (fun () ->
+                 Refactor_syntax.Callsite.fn callsite
+                 |> Pprintast.string_of_expression
+                 |> Longident.parse
+                 |> Longident.flatten_exn)
+             with
+             | Ok (("Async" | "Async_log") :: _) -> true
+             | Error e ->
+               print_s [%message "Warning: callsite function nonstandard" (e : Error.t)];
+               false
+             | Ok (_ : string list) -> false
+           in
+           let extension =
+             (* I'd do the replacement w/ metaquot, but [Pprintast.string_of_expression
+                [%expr Module.(X)]] becomes [let open Module in X] *)
+             if has_async_as_prefix
+             then [%string {|Async_log.Ppx_log_syntax.(%{extension})|}]
+             else extension
+           in
+           if actually_transform then Callsite.replace callsite extension editor
+         | Error (`Too_few_positional_args e) ->
+           if not am_running_test then print_s e;
+           if actually_transform
+           then Callsite.add_legacy_alert callsite editor ~cr:partial_application_cr)
 
     method! argument_as_callsite_of_binding callsite (_ : longident_loc) _ =
       print_s
@@ -488,152 +595,331 @@ let parse editor ~actually_transform =
   end
 ;;
 
-let%expect_test "test" =
-  let result =
-    Refactor_syntax.transform_exn
-      (parse ~actually_transform:true)
-      ~filename:(File_path.of_string "file.ml")
-      ~file_contents:
+let%test_module "" =
+  (module struct
+    let test import_log file_contents =
+      let exported_log_modules =
+        match import_log with
+        | None -> []
+        | Some import_log -> [ `Module_name "Import", import_log ]
+      in
+      Or_error.try_with (fun () ->
+        Refactor_syntax.transform_exn
+          (parse ~actually_transform:true ~exported_log_modules)
+          ~filename:(File_path.of_string "file.ml")
+          ~file_contents)
+    ;;
+
+    let%expect_test "ppx log is used iff async log is in scope, not shadowed by import" =
+      List.iter [%all: Exported_log_module.t option] ~f:(fun import_log ->
+        printf
+          !"\nIf [Import.Log] is %{Sexp} then\n"
+          [%sexp (import_log : Exported_log_module.t option)];
+        List.iter [ "open Import"; "open Async open Import" ] ~f:(fun opens ->
+          List.iter
+            [ {|let () = Log.Global.info_s [%message ""]|}
+            ; {|let () = Log.info_s log [%message ""]|}
+            ; {|let () = Log.info_s [%message ""]|}
+            ]
+            ~f:(fun statement ->
+            let contents = opens ^ " " ^ statement in
+            match test import_log contents with
+            | Ok result ->
+              if String.(contents <> result)
+              then printf "- changed:  -[%s]\n  into:     +[%s]\n\n" contents result
+              else printf "- unchanged: [%s]\n" contents
+            | Error (_ : Error.t) -> printf "- error:    ![%s]\n" contents)));
+      [%expect
         {|
-open Core
-open Async
+   If [Import.Log] is () then
+   - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
+   - unchanged: [open Import let () = Log.info_s log [%message ""]]
+   - unchanged: [open Import let () = Log.info_s [%message ""]]
+   - changed:  -[open Async open Import let () = Log.Global.info_s [%message ""]]
+     into:     +[open Async open Import let () = (([%log.global.info ""]))]
 
-let () =
-  Log.Global.info_s [%message error_str];
-  Log.Global.info_s [%message (hostname : Hostname.t) (e : Error.t) [@@tags "hello", "world"]];
-  Log.Global.info_s [%message "message" ~_:(List.hd_exn errors : Error.t)];
-  Log.Global.info_s [%message "message" (i : int option[@sexp.option])];
-  Log.Global.info_s [%message "message" (i : int option[@sexp.omit_nil])];
+   - changed:  -[open Async open Import let () = Log.info_s log [%message ""]]
+     into:     +[open Async open Import let () = (([%log.info log ""]))]
 
-  Log.Global.info_s [%sexp (e : Error.t)];
-  Log.Global.info_s error_sexp;
-  Log.Global.info_s [%sexp "message", (host : Hostname.t), ~~(error : Error.t)];
-  Log.Global.info_s [%sexp (my_message : string), (host : Hostname.t)];
-  Log.Global.info_s [%sexp (my_message : string), { host : Hostname.t }];
-  Log.Global.info_s [%sexp [%string "hello %d" 1], { host : Hostname.t }];
+   - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
 
-  Log.Global.sexp ~level:`Debug ~time ~tags:my_tags [%message "hello"];
-  (* Places where [level] and [time] are variable are few / generally only log wrappers. *)
-  Log.Global.sexp ~level:my_level ?time ~tags:my_tags [%message "hello"];
-  Log.Global.sexp ?tags:my_tags [%message "hello"];
+   If [Import.Log] is (Global_log) then
+   - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
+   - error:    ![open Import let () = Log.info_s log [%message ""]]
+   - changed:  -[open Import let () = Log.info_s [%message ""]]
+     into:     +[open Import let () = (([%log.global.info ""]))]
 
-  Log.Global.printf "hello world";
-  Log.Global.printf "hello world %s" i;
+   - unchanged: [open Async open Import let () = Log.Global.info_s [%message ""]]
+   - error:    ![open Async open Import let () = Log.info_s log [%message ""]]
+   - changed:  -[open Async open Import let () = Log.info_s [%message ""]]
+     into:     +[open Async open Import let () = (([%log.global.info ""]))]
 
-  Log.info_s (my log) [%message error_str];
-  Log.info_s (my log) [%message (hostname : Hostname.t) (e : Error.t) [@@tags "hello", "world"]];
-  Log.info_s (my log) [%message "message" ~_:(List.hd_exn errors : Error.t)];
-  Log.info_s (my log) [%message "message" (i : int option[@sexp.option])];
-  Log.info_s (my log) [%message "message" (i : int option[@sexp.omit_nil])];
 
-  Log.info_s (my log) [%sexp (e : Error.t)];
-  Log.info_s (my log) error_sexp;
-  Log.info_s (my log) [%sexp "message", (host : Hostname.t), ~~(error : Error.t)];
-  Log.info_s (my log) [%sexp (my_message : string), (host : Hostname.t)];
-  Log.info_s (my log) [%sexp (my_message : string), { host : Hostname.t }];
-  Log.info_s (my log) [%sexp ((a b) : int), (b : int)];
-  Log.info_s (my log) [%sexp { a : int; b : int }];
-  Log.info_s (my log) [%sexp { a = 123 }];
+   If [Import.Log] is (Async_log) then
+   - changed:  -[open Import let () = Log.Global.info_s [%message ""]]
+     into:     +[open Import let () = (([%log.global.info ""]))]
 
-  do_thing ~log:(Log.Global.info_s);
-  do_thing ~log:(Log.info_s (my log));
-  do_thing ~log:(Log.info_s ~time:Time_ns.epoch);
+   - changed:  -[open Import let () = Log.info_s log [%message ""]]
+     into:     +[open Import let () = (([%log.info log ""]))]
 
-  Log.sexp (my log) ~level:`Debug ~time [%message "hello" [@@tags my_tags]];
-  Log.sexp (my log) ~level:my_level ?time [%message "hello" [@@tags my_tags]];
-  Log.printf (my log) "hello world";
-  Log.printf (my log) "hello world %s" i
-;;
-|}
-    |> String.substr_replace_all ~pattern:"\n  " ~with_:"\n"
-  in
-  [%expect
-    {|
-    ("Callsite was passed as argument to other function"
-     ((loc file.ml:42) (expr Log.Global.info_s)))
-    ("Log invocation has no positional args" (kind Sexp)
-     ((loc file.ml:43) (expr "Log.info_s (my log)")))
-    ("Non-global log statement unexpectedly has no positional args"
-     (callsite_desc ((loc file.ml:44) (expr "Log.info_s ~time:Time_ns.epoch")))) |}];
-  print_endline result;
-  [%expect
-    {|
+   - unchanged: [open Import let () = Log.info_s [%message ""]]
+   - changed:  -[open Async open Import let () = Log.Global.info_s [%message ""]]
+     into:     +[open Async open Import let () = (([%log.global.info ""]))]
+
+   - changed:  -[open Async open Import let () = Log.info_s log [%message ""]]
+     into:     +[open Async open Import let () = (([%log.info log ""]))]
+
+   - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
+
+   If [Import.Log] is (Neither_async_nor_global_log) then
+   - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
+   - unchanged: [open Import let () = Log.info_s log [%message ""]]
+   - unchanged: [open Import let () = Log.info_s [%message ""]]
+   - unchanged: [open Async open Import let () = Log.Global.info_s [%message ""]]
+   - unchanged: [open Async open Import let () = Log.info_s log [%message ""]]
+   - unchanged: [open Async open Import let () = Log.info_s [%message ""]] |}]
+    ;;
+
+    let%expect_test "test" =
+      let result =
+        test
+          (Some Async_log)
+          {|
+   open Core
+   open Async
+
+   let () =
+   Log.Global.info_s [%message error_str];
+   Log.Global.info_s [%message (hostname : Hostname.t) (e : Error.t) [@@tags "hello", "world"]];
+   Log.Global.info_s [%message "message" ~_:(List.hd_exn errors : Error.t)];
+   Log.Global.info_s [%message "message" (i : int option[@sexp.option])];
+   Log.Global.info_s [%message "message" (i : int option[@sexp.omit_nil])];
+
+   Log.Global.info_s [%sexp (e : Error.t)];
+   Log.Global.info_s error_sexp;
+   Log.Global.info_s [%sexp "message", (host : Hostname.t), ~~(error : Error.t)];
+   Log.Global.info_s [%sexp (my_message : string), (* Test comment *)(host : Hostname.t)];
+   Log.Global.info_s [%sexp (my_message : string), { host : Hostname.t }];
+   Log.Global.info_s [%sexp [%string "hello %d" 1], { host : Hostname.t }];
+
+   Log.Global.sexp ~level:`Debug ~time ~tags:my_tags [%message "hello"];
+   (* Places where [level] and [time] are variable are few / generally only log wrappers. *)
+   Log.Global.sexp ~level:my_level ?time ~tags:my_tags [%message "hello"];
+   Log.Global.sexp ?tags:my_tags [%message "hello"];
+
+   Log.Global.printf "hello world";
+   Log.Global.printf "hello world %s" i;
+   Log.Global.printf "hello world %s %% %s";
+
+   Log.info_s (my log) [%message error_str];
+   Log.info_s (my log) [%message (hostname : Hostname.t) (e : Error.t) [@@tags "hello", "world"]];
+   Log.info_s (my log) [%message "message" ~_:(List.hd_exn errors : Error.t)];
+   Log.info_s (my log) [%message "message" (i : int option[@sexp.option])];
+   Log.info_s (my log) [%message "message" (i : int option[@sexp.omit_nil])];
+
+   Log.info_s (my log) [%sexp (e : Error.t)];
+   Log.info_s (my log) error_sexp;
+   Log.info_s (my log) [%sexp "message", (host : Hostname.t), ~~(error : Error.t)];
+   Log.info_s (my log) [%sexp (my_message : string), (host : Hostname.t)];
+   Log.info_s (my log) [%sexp (my_message : string), { host : Hostname.t }];
+   Log.info_s (my log) [%sexp ((a b) : int), (b : int)];
+   Log.info_s (my log) [%sexp { a : int; b : int }];
+   Log.info_s (my log) [%sexp { a = 123 }];
+
+   do_thing ~log:(Log.Global.info_s);
+   do_thing ~log:(Log.info_s (my log));
+   do_thing ~log:(Log.info_s ~time:Time_ns.epoch);
+
+   Log.sexp (my log) ~level:`Debug ~time [%message "hello" [@@tags my_tags]];
+   Log.sexp (my log) ~level:my_level ?time [%message "hello" [@@tags my_tags]];
+   Log.printf (my log) "hello world";
+   Log.printf (my log) "hello world %s" i
+
+   module Log = Log.Global
+   let () = Log.sexp [%message "hello"]
+   ;;
+   |}
+        |> ok_exn
+        |> String.substr_replace_all ~pattern:"\n  " ~with_:"\n"
+      in
+      [%expect
+        {|
+   ("Callsite was passed as argument to other function"
+    ((loc file.ml:43) (expr Log.Global.info_s))) |}];
+      print_endline result;
+      [%expect
+        {|
     open Core
     open Async
 
     let () =
-    [%log.global.info error_str];
-    [%log.global.info (hostname : Hostname.t) (e : Error.t)];
-    [%log.global.info "message" ~_:(List.hd_exn errors : Error.t)];
-    [%log.global.info "message" (i : ((int option)[@sexp.option ]))];
-    [%log.global.info "message" (i : ((int option)[@sexp.omit_nil ]))];
+    (([%log.global.info error_str]));
+    (([%log.global.info (hostname : Hostname.t) (e : Error.t)]));
+    (([%log.global.info "message" ~_:(List.hd_exn errors : Error.t)]));
+    (([%log.global.info "message" (i : ((int option)[@sexp.option ]))]));
+    (([%log.global.info "message" (i : ((int option)[@sexp.omit_nil ]))]));
 
-    [%log.global.info_sexp (e : Error.t)];
-    [%log.global.info_sexp error_sexp];
-    [%log.global.info "message" ~_:(host : Hostname.t) (error : Error.t)];
-    [%log.global.info my_message ~_:(host : Hostname.t)];
-    [%log.global.info
-    my_message ~host:(host : Hostname.t)[@@legacy_tag_parentheses ]];
-    [%log.global.info
-    ([%string "hello %d" 1]) ~host:(host : Hostname.t)[@@legacy_tag_parentheses
-                                                        ]];
+    (([%log.global.info_sexp (e : Error.t)]));
+    (([%log.global.info_sexp error_sexp]));
+    (([%log.global.info "message" ~_:(host : Hostname.t) (error : Error.t)]));
+    ((* Test comment *)([%log.global.info my_message ~_:(host : Hostname.t)]));
+    (([%log.global.info
+   my_message ~host:(host : Hostname.t)[@@legacy_tag_parentheses ]]));
+    (([%log.global.info
+   ([%string "hello %d" 1]) ~host:(host : Hostname.t)[@@legacy_tag_parentheses
+                                                       ]]));
 
-    [%log.global.debug "hello"[@@tags my_tags][@@time Some time]];
+    (([%log.global.debug "hello"[@@tags my_tags][@@time Some time]]));
     (* Places where [level] and [time] are variable are few / generally only log wrappers. *)
-    [%log.global "hello"[@@tags my_tags][@@time time][@@level Some my_level]];
-    [%log.global "hello"[@@tags Option.value my_tags ~default:[]]];
+    (([%log.global "hello"[@@tags my_tags][@@time time][@@level Some my_level]]));
+    (([%log.global "hello"[@@tags Option.value my_tags ~default:[]]]));
 
-    [%log.global.format "hello world"];
-    [%log.global.format "hello world %s" i];
+    (([%log.global.format "hello world"]));
+    (([%log.global.format "hello world %s" i]));
+    (([%log.global.format "hello world %s %% %s"]));
 
-    [%log.info (my log) error_str];
-    [%log.info (my log) (hostname : Hostname.t) (e : Error.t)];
-    [%log.info (my log) "message" ~_:(List.hd_exn errors : Error.t)];
-    [%log.info (my log) "message" (i : ((int option)[@sexp.option ]))];
-    [%log.info (my log) "message" (i : ((int option)[@sexp.omit_nil ]))];
+    (([%log.info (my log) error_str]));
+    (([%log.info (my log) (hostname : Hostname.t) (e : Error.t)]));
+    (([%log.info (my log) "message" ~_:(List.hd_exn errors : Error.t)]));
+    (([%log.info (my log) "message" (i : ((int option)[@sexp.option ]))]));
+    (([%log.info (my log) "message" (i : ((int option)[@sexp.omit_nil ]))]));
 
-    [%log.info_sexp (my log) (e : Error.t)];
-    [%log.info_sexp (my log) error_sexp];
-    [%log.info (my log) "message" ~_:(host : Hostname.t) (error : Error.t)];
-    [%log.info (my log) my_message ~_:(host : Hostname.t)];
-    [%log.info
-    (my log) my_message ~host:(host : Hostname.t)[@@legacy_tag_parentheses ]];
-    [%log.info (my log) "" ~_:(a b : int) ~_:(b : int)];
-    [%log.info (my log) "" ~a:(a : int) ~b:(b : int)[@@legacy_tag_parentheses ]];
-    [%log.info (my log) "" ~a:123[@@legacy_tag_parentheses ]];
+    (([%log.info_sexp (my log) (e : Error.t)]));
+    (([%log.info_sexp (my log) error_sexp]));
+    (([%log.info (my log) "message" ~_:(host : Hostname.t) (error : Error.t)]));
+    (([%log.info (my log) my_message ~_:(host : Hostname.t)]));
+    (([%log.info
+   (my log) my_message ~host:(host : Hostname.t)[@@legacy_tag_parentheses ]]));
+    (([%log.info (my log) "" ~_:(a b : int) ~_:(b : int)]));
+    (([%log.info (my log) "" ~a:(a : int) ~b:(b : int)[@@legacy_tag_parentheses ]]));
+    (([%log.info (my log) "" ~a:123[@@legacy_tag_parentheses ]]));
 
-    do_thing ~log:(((Log.Global.info_s)[@alert "-legacy"])) ;
-    do_thing ~log:(((Log.info_s)[@alert "-legacy"]) (my log)) ;
-    do_thing ~log:(((Log.info_s)[@alert "-legacy"]) ~time:Time_ns.epoch) ;
+    do_thing ~log:(Log.Global.info_s);
+    do_thing ~log:(Log.info_s (my log));
+    do_thing ~log:(Log.info_s ~time:Time_ns.epoch);
 
-    [%log.debug (my log) "hello"[@@time Some time]];
-    [%log (my log) "hello"[@@time time][@@level Some my_level]];
-    [%log.format (my log) "hello world"];
-    [%log.format (my log) "hello world %s" i]
+    (([%log.debug (my log) "hello"[@@time Some time]]));
+    (([%log (my log) "hello"[@@time time][@@level Some my_level]]));
+    (([%log.format (my log) "hello world"]));
+    (([%log.format (my log) "hello world %s" i]))
+
+    module Log = Log.Global
+    let () = (([%log.global "hello"]))
     ;; |}]
+    ;;
+  end)
 ;;
 
+open! Async
+
+type t =
+  { actually_transform : bool
+  ; cache_dir : File_path.t
+  }
+[@@deriving fields ~getters ~iterators:(create, make_creator)]
+
+let param =
+  Roundtrippable_command_param.Record_builder.(
+    build_for_record
+      (Fields.make_creator
+         ~actually_transform:
+           (field
+              (Roundtrippable_command_param.create_required
+                 "actually-transform"
+                 Command.Param.Arg_type.Export.bool
+                 ~to_string:Bool.to_string
+                 ~doc:"BOOL Actually transform the code, vs. only parse and print errors"))
+         ~cache_dir:
+           (field
+              (Roundtrippable_command_param.create_required
+                 "shared-cache-path"
+                 File_path.arg_type
+                 ~to_string:File_path.to_string
+                 ~doc:
+                   "PATH Use this path to cache shared computations across different \
+                    workers"))))
+;;
+
+module Cache = struct
+  module Data = struct
+    module Entry = struct
+      type t = [ `Module_name of string ] * Exported_log_module.t [@@deriving sexp]
+
+      let determine project filename =
+        match File_path.basename filename with
+        | None -> return None
+        | Some basename ->
+          (match String.lsplit2 (File_path.Part.to_string basename) ~on:'.' with
+           | None -> return None
+           | Some (module_name, "ml") ->
+             let module_name = String.capitalize module_name in
+             if%bind Filesystem_async.exists_exn filename
+             then
+               Refactor_project.find project ~filename
+               >>| Exported_log_module.determine
+               >>| Option.map ~f:(fun export -> `Module_name module_name, export)
+             else return None
+           | Some ((_ : string), (_ : string)) -> return None)
+      ;;
+    end
+
+    type t = Entry.t list [@@deriving sexp]
+
+    let files_in_directory working_dir ~matching =
+      Refactor_bash.Rg.command (Refactor_bash.Rg.create () ~matching)
+      |> Refactor_bash.run_for_stdout ~working_dir ~accept_nonzero_exit:[ 1 ]
+      >>| String.split ~on:'\n'
+      >>| List.filter ~f:(Fn.non String.is_empty)
+    ;;
+
+    let compute project dir =
+      print_s [%message "Computing log module exports" (dir : File_path.t)];
+      let%bind files = files_in_directory dir ~matching:(Regex {|^module Log = |}) in
+      Deferred.List.filter_map files ~how:`Parallel ~f:(fun filename ->
+        File_path.append dir (File_path.Relative.of_string filename)
+        |> Entry.determine project)
+    ;;
+  end
+
+  let sanitize_path_to_string path =
+    File_path.to_string path
+    |> String.map ~f:(function
+         | ('a' .. 'z' | '0' .. '9' | '-' | '_') as c -> c
+         | _ -> '_')
+    |> File_path.Part.of_string
+  ;;
+
+  let create ~project ~cache_dir =
+    Filesystem_cache.create
+      ~key_to_filename:sanitize_path_to_string
+      ~data_format:(module Data)
+      ~compute:(Data.compute project)
+      ~cache_dir
+  ;;
+end
+
 let command =
-  let open Async in
   let find_files_based_on =
-    Refactor_bash.Rg.create ~matching:(Regex {|(info|error|debug)_s|}) ()
+    Refactor_bash.Rg.create ~matching:(Regex {|(log|Log|L)\.|}) ()
   in
-  let instance_impl actually_transform ~repo:_ ~project ~session:_ filename =
+  let instance_impl { actually_transform; cache_dir } ~repo:_ ~project ~session:_ filename
+    =
     if String.is_suffix ~suffix:".ml" (File_path.to_string filename)
     then (
-      let%map editor = Refactor_project.find project ~filename in
-      Refactor_editor.transform_exn editor ~f:(parse ~actually_transform))
+      let cache = Cache.create ~project ~cache_dir in
+      let%bind editor = Refactor_project.find project ~filename in
+      let%map exported_log_modules =
+        Filesystem_cache.fetch cache (File_path.dirname_exn filename)
+      in
+      Refactor_editor.transform_exn
+        editor
+        ~f:(parse ~actually_transform ~exported_log_modules))
     else return ()
   in
   Refactor_parallel.single_command
     ~find_files_based_on
     ~instance_impl
-    ~shared_param:
-      (Roundtrippable_command_param.create_required
-         "actually-transform"
-         Command.Param.Arg_type.Export.bool
-         ~to_string:Bool.to_string
-         ~doc:"Actually transform the code, vs. only parse and print errors")
+    ~shared_param:param
     ~summary:
       "Replaces all Log[.Global].(info|error|debug)_s calls with [%message] arguments \
        with the ppx_log equivalents"
