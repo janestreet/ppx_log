@@ -302,10 +302,27 @@ module Arg_list = struct
     }
   [@@deriving sexp_of]
 
+  (* [~my_var:(my_var : my_type)] is not automatically changed to [(my_var : my_type)]),
+     so do it here. (note, ~my_var:my_var /is/ automatically changed to ~my_var.) *)
+  let apply_label_punning_on_constraint (label, e) =
+    let can_remove_label =
+      match label with
+      | Nolabel | Optional (_ : string) -> false
+      | Labelled label ->
+        (match e.pexp_desc with
+         | Pexp_constraint
+             ( { pexp_desc = Pexp_ident { txt = Lident label_in_expression; loc = _ }; _ }
+             , (_ : core_type) ) -> String.(label = label_in_expression)
+         | _ -> false)
+    in
+    if can_remove_label then Nolabel, e else label, e
+  ;;
+
   let to_expression { message; tags } =
     match tags with
     | [] -> message
     | _ :: _ as tags ->
+      let tags = List.map tags ~f:apply_label_punning_on_constraint in
       (* We don't use [Ast_builder.pexp_apply] since if the first element is itself a fn
          application, [Ast_builder] will join it with the other tags. *)
       { message with pexp_desc = Pexp_apply (message, tags) }
@@ -411,17 +428,100 @@ let parse_sexp_callsite_args ~callsite_desc = function
   | nonstandard_arg -> Error (`Use_sexp_extension nonstandard_arg)
 ;;
 
+let num_matches fmt_string pattern =
+  String.substr_index_all fmt_string ~pattern ~may_overlap:false |> List.length
+;;
+
+let num_fmt_args fmt =
+  let num_matches = num_matches fmt in
+  num_matches "%" - (num_matches "%%" * 2) - num_matches "%!"
+;;
+
+let maybe_use_string_extension fmt expr =
+  (* A printf can be written as a straight-up string if there are no [%]s. This is
+     stricter than if [num_fmt_args = 0] because things like '%!' still require a
+     format-string. *)
+  if num_matches fmt "%" = 0
+  then Error (`Use_string_extension (Arg_list.create expr []))
+  else Ok ()
+;;
+
+let parse_printf fmt_expr args ~callsite_desc =
+  let open Result.Let_syntax in
+  let%map fmt_expr, num_args =
+    match fmt_expr with
+    (* [printf "..."] *)
+    | { pexp_desc = Pexp_constant (Pconst_string (fmt, _, _)); _ } ->
+      let%map () = maybe_use_string_extension fmt fmt_expr in
+      fmt_expr, num_fmt_args fmt
+    (* [printf !"..."] *)
+    | [%expr ![%e? { pexp_desc = Pexp_constant (Pconst_string (fmt, _, _)); _ } as e]] ->
+      let%map () = maybe_use_string_extension fmt e in
+      (* If the fmt string has no '%'s, having '!' in the output breaks, so remove it in
+         that case. *)
+      let num_args = num_fmt_args fmt in
+      if num_args = 0 then e, 0 else fmt_expr, num_args
+    | { pexp_desc = Pexp_ident { txt = ident; _ }; _ } ->
+      (* The really complicated case is when the format string is non-constant. Most of
+         the time, it's a string. But it seems like there are a few wrapper libraries
+         that do this. I use a heuristic here by variable name to catch these. We can
+         adjust manually after. *)
+      let contains substring = Longident.name ident |> String.is_substring ~substring in
+      if contains "format" || contains "fmt"
+      then
+        Error
+          (`Too_few_positional_args
+            [%message
+              "Callsite likely passes non-constant format argument"
+                ~_:(callsite_desc : Sexp.t)])
+      else Ok (fmt_expr, 0)
+    | _ ->
+      (* Skimming thru some cases in the tree, it seems like more complex expressions are
+         either strings or constructions that don't take any additional arguments. Like
+         above, we can adjust afterwards. *)
+      Ok (fmt_expr, 0)
+  in
+  let extra_args =
+    List.init
+      (max 0 (num_args - List.length args))
+      ~f:(function
+        (* Most [printf]s with an extra arg only have 1, so don't add a number there. *)
+        | 0 -> "log_arg"
+        | n -> sprintf "log_arg_%d" (n + 1))
+  in
+  let () =
+    if List.length extra_args > 0
+    then
+      (* For good measure, double-check that [log_arg] isn't used in the printf expression
+         itself (to catch the chance we accidentally shadow it). *)
+      List.iter (fmt_expr :: args) ~f:(fun expr ->
+        if String.is_substring (Pprintast.string_of_expression expr) ~substring:"log_arg"
+        then
+          raise_s
+            [%message "Unexpected argument in the printf expression that is 'log_arg'"])
+  in
+  let extra_arglist =
+    List.map extra_args ~f:(fun arg -> Ast_builder.(pexp_ident (Located.lident arg)))
+  in
+  let payload = Arg_list.create_unlabelled fmt_expr (args @ extra_arglist) in
+  payload, extra_args
+;;
+
 let parse_callsite_exn format positional_args ~callsite_desc =
   match format, positional_args with
   | Callsite_kind.Sexp, [ single_arg ] ->
     (match parse_sexp_callsite_args single_arg ~callsite_desc with
      | Ok (arg_list, maybe_extra_attr) ->
-       Extension_kind.Message, arg_list, maybe_extra_attr
-     | Error (`Use_sexp_extension arg) -> Sexp, Arg_list.create arg [], None)
+       Extension_kind.Message, arg_list, maybe_extra_attr, []
+     | Error (`Use_sexp_extension arg) -> Sexp, Arg_list.create arg [], None, [])
     |> Ok
-  | Printf, hd :: tl -> (Format, Arg_list.create_unlabelled hd tl, None) |> Ok
+  | Printf, hd :: tl ->
+    (match parse_printf hd tl ~callsite_desc with
+     | Ok (payload, extra_args) -> Ok (Extension_kind.Format, payload, None, extra_args)
+     | Error (`Use_string_extension payload) -> Ok (String, payload, None, [])
+     | Error (`Too_few_positional_args e) -> Error (`Too_few_positional_args e))
   | String, [ single_arg ] ->
-    (Extension_kind.String, Arg_list.create single_arg [], None) |> Ok
+    (Extension_kind.String, Arg_list.create single_arg [], None, []) |> Ok
   | kind, [] ->
     Error
       (`Too_few_positional_args
@@ -451,7 +551,7 @@ let parse_callsite_exn format positional_args ~is_global ~callsite_desc =
               (callsite_desc : Sexp.t)])
     | `Instance, log_arg :: tl -> Ok (Some log_arg, tl)
   in
-  let%map format, extension_args, maybe_extra_attribute =
+  let%map format, extension_args, maybe_extra_attribute, outer_args =
     parse_callsite_exn format positional_args ~callsite_desc
   in
   let extension_args =
@@ -459,7 +559,7 @@ let parse_callsite_exn format positional_args ~is_global ~callsite_desc =
     | None -> extension_args
     | Some arg -> Arg_list.prepend_arg extension_args arg
   in
-  format, extension_args, maybe_extra_attribute
+  format, extension_args, maybe_extra_attribute, outer_args
 ;;
 
 let legacy_tag_parentheses_attr =
@@ -546,7 +646,7 @@ let parse editor ~actually_transform ~exported_log_modules =
              ~is_global
              ~callsite_desc
          with
-         | Ok (kind, extension_args, maybe_extra_attr) ->
+         | Ok (kind, extension_args, maybe_extra_attr, outer_args) ->
            let name = Callsite_level.extension_name log_callsite.level kind ~is_global in
            let payload = Arg_list.to_expression extension_args in
            let attrs =
@@ -557,6 +657,14 @@ let parse editor ~actually_transform ~exported_log_modules =
            let extension =
              Ast_builder.(
                pexp_extension (Located.mk name, PStr [ pstr_eval payload attrs ]))
+           in
+           let extension =
+             List.fold (List.rev outer_args) ~init:extension ~f:(fun extension arg ->
+               Ast_builder.pexp_fun
+                 Nolabel
+                 None
+                 Ast_builder.(ppat_var (Located.mk arg))
+                 extension)
              |> Pprintast.string_of_expression
            in
            let has_async_as_prefix =
@@ -581,6 +689,14 @@ let parse editor ~actually_transform ~exported_log_modules =
              else extension
            in
            if actually_transform then Callsite.replace callsite extension editor
+         | Error (`Nonstandard_format_string e) ->
+           print_s e;
+           if actually_transform
+           then
+             Callsite.add_legacy_alert
+               callsite
+               editor
+               ~cr:"Consider switching to ppx log."
          | Error (`Too_few_positional_args e) ->
            if not am_running_test then print_s e;
            if actually_transform
@@ -763,20 +879,19 @@ let%test_module "" =
     (([%log.global.info_sexp error_sexp]));
     (([%log.global.info "message" ~_:(host : Hostname.t) (error : Error.t)]));
     ((* Test comment *)([%log.global.info my_message ~_:(host : Hostname.t)]));
+    (([%log.global.info my_message (host : Hostname.t)[@@legacy_tag_parentheses ]]));
     (([%log.global.info
-   my_message ~host:(host : Hostname.t)[@@legacy_tag_parentheses ]]));
-    (([%log.global.info
-   ([%string "hello %d" 1]) ~host:(host : Hostname.t)[@@legacy_tag_parentheses
-                                                       ]]));
+   ([%string "hello %d" 1]) (host : Hostname.t)[@@legacy_tag_parentheses ]]));
 
     (([%log.global.debug "hello"[@@tags my_tags][@@time Some time]]));
     (* Places where [level] and [time] are variable are few / generally only log wrappers. *)
     (([%log.global "hello"[@@tags my_tags][@@time time][@@level Some my_level]]));
     (([%log.global "hello"[@@tags Option.value my_tags ~default:[]]]));
 
-    (([%log.global.format "hello world"]));
+    (([%log.global.string "hello world"]));
     (([%log.global.format "hello world %s" i]));
-    (([%log.global.format "hello world %s %% %s"]));
+    ((fun log_arg log_arg_2 ->
+   [%log.global.format "hello world %s %% %s" log_arg log_arg_2]));
 
     (([%log.info (my log) error_str]));
     (([%log.info (my log) (hostname : Hostname.t) (e : Error.t)]));
@@ -789,9 +904,9 @@ let%test_module "" =
     (([%log.info (my log) "message" ~_:(host : Hostname.t) (error : Error.t)]));
     (([%log.info (my log) my_message ~_:(host : Hostname.t)]));
     (([%log.info
-   (my log) my_message ~host:(host : Hostname.t)[@@legacy_tag_parentheses ]]));
+   (my log) my_message (host : Hostname.t)[@@legacy_tag_parentheses ]]));
     (([%log.info (my log) "" ~_:(a b : int) ~_:(b : int)]));
-    (([%log.info (my log) "" ~a:(a : int) ~b:(b : int)[@@legacy_tag_parentheses ]]));
+    (([%log.info (my log) "" (a : int) (b : int)[@@legacy_tag_parentheses ]]));
     (([%log.info (my log) "" ~a:123[@@legacy_tag_parentheses ]]));
 
     do_thing ~log:(Log.Global.info_s);
@@ -800,7 +915,7 @@ let%test_module "" =
 
     (([%log.debug (my log) "hello"[@@time Some time]]));
     (([%log (my log) "hello"[@@time time][@@level Some my_level]]));
-    (([%log.format (my log) "hello world"]));
+    (([%log.string (my log) "hello world"]));
     (([%log.format (my log) "hello world %s" i]))
 
     module Log = Log.Global

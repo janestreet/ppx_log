@@ -15,6 +15,12 @@ let my_tags = [ "hello", "world" ]
 let my_level = `Debug
 let my_sexp () = [%sexp "hello"]
 let log_message msg = Async.Log.Global.printf ~level:`Debug msg
+let log_fmt fmt = Async.Log.Global.printf ~level:`Debug fmt
+
+(* The statements below are functions because otherwise they turn into noops, as the log
+   level check happens before the format string is applied. *)
+let log_fmt2 () = Async.Log.Global.printf ~level:`Debug "%s"
+let log_fmt3 () = Async.Log.Global.printf ~level:`Debug !"%{String}"
 let string_needing_escape = {|what's up /world\|}
 
 let test_direct_log () =
@@ -31,6 +37,10 @@ let do_log () =
   Log.Global.info_s [%message "message3" ~_:(List.hd_exn errors : Error.t)];
   Log.Global.info_s [%message "message4" (i : (int option[@sexp.option]))];
   Log.Global.info_s [%message "message5" (i : (int option[@sexp.omit_nil]))];
+  Log.Global.info_s [%message "label pun 1" ~host];
+  Log.Global.info_s [%message "label pun 2" (host : String.t)];
+  Log.Global.info_s [%message "label pun 3" ~host:(host : String.t)];
+  Log.Global.info_s [%message "labelled 4" ~my_host:(host : String.t)];
   Log.Global.info_s [%sexp (e : Error.t)];
   Log.Global.info_s error_sexp;
   Log.Global.info_s [%sexp "message8", (host : String.t), ~~(e : Error.t)];
@@ -47,8 +57,12 @@ let do_log () =
     [%message (host : String.t) (e : Error.t)]
     ~tags:[ "hello17", "world" ];
   log_message "hello";
+  log_fmt "partial application of format %d" 18;
+  log_fmt2 () "partial application of format 2";
+  log_fmt3 () "partial application of format 3";
   Log.Global.printf !"custom printf %{Int} %d" 3 4;
   Log.Global.printf !"custom printf but with regular format arg %d" 3;
+  Log.Global.printf !"no args in custom printf%! %%";
   Log.info_s (log ()) [%message "message18" ~_:(List.hd_exn errors : Error.t)];
   Log.info_s (log ()) [%message "message19" (i : (int option[@sexp.option]))];
   Log.info_s (log ()) [%message "message20" (i : (int option[@sexp.omit_nil]))];

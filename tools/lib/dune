@@ -1,5 +1,4 @@
 (library (name switch_to_ppx_log_lib)
- (libraries async core_unix.command_unix filesystem_async
-  async.lock_file_async refactor_bash refactor_project refactor_parallel
-  refactor_syntax core_unix.sys_unix)
+ (libraries async filesystem_async async.lock_file_async refactor_bash
+  refactor_project refactor_parallel refactor_syntax)
  (preprocess (pps ppx_jane ppxlib.metaquot)))
