@@ -14,8 +14,8 @@ module Extension_kind = struct
     | Message (* E.g., [%log.global.info], [%log.global] *)
     | Sexp (* E.g., [%log.global.info_sexp], [%log.global.sexp] *)
     | Format (* E.g., [%log.global.info_format], [%log.global.format] *)
-    | String (* [%log.global.string] *)
-  [@@deriving enumerate, sexp_of]
+    | String (* E.g., [%log.global.info_string], [%log.global.string] *)
+  [@@deriving enumerate, sexp_of, variants]
 
   let to_suffix separator = function
     | Message -> ""
@@ -318,11 +318,19 @@ module Arg_list = struct
     if can_remove_label then Nolabel, e else label, e
   ;;
 
-  let to_expression { message; tags } =
+  let to_expression { message; tags } ~should_remove_empty_string_args =
     match tags with
     | [] -> message
     | _ :: _ as tags ->
       let tags = List.map tags ~f:apply_label_punning_on_constraint in
+      let tags =
+        if should_remove_empty_string_args
+        then
+          List.filter_map tags ~f:(function
+            | Nolabel, [%expr ""] -> None
+            | e -> Some e)
+        else tags
+      in
       (* We don't use [Ast_builder.pexp_apply] since if the first element is itself a fn
          application, [Ast_builder] will join it with the other tags. *)
       { message with pexp_desc = Pexp_apply (message, tags) }
@@ -648,7 +656,10 @@ let parse editor ~actually_transform ~exported_log_modules =
          with
          | Ok (kind, extension_args, maybe_extra_attr, outer_args) ->
            let name = Callsite_level.extension_name log_callsite.level kind ~is_global in
-           let payload = Arg_list.to_expression extension_args in
+           let payload =
+             let should_remove_empty_string_args = Extension_kind.is_message kind in
+             Arg_list.to_expression extension_args ~should_remove_empty_string_args
+           in
            let attrs =
              match maybe_extra_attr with
              | None -> attrs
@@ -755,7 +766,7 @@ let%test_module "" =
      into:     +[open Async open Import let () = (([%log.global.info ""]))]
 
    - changed:  -[open Async open Import let () = Log.info_s log [%message ""]]
-     into:     +[open Async open Import let () = (([%log.info log ""]))]
+     into:     +[open Async open Import let () = (([%log.info log ]))]
 
    - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
 
@@ -776,14 +787,14 @@ let%test_module "" =
      into:     +[open Import let () = (([%log.global.info ""]))]
 
    - changed:  -[open Import let () = Log.info_s log [%message ""]]
-     into:     +[open Import let () = (([%log.info log ""]))]
+     into:     +[open Import let () = (([%log.info log ]))]
 
    - unchanged: [open Import let () = Log.info_s [%message ""]]
    - changed:  -[open Async open Import let () = Log.Global.info_s [%message ""]]
      into:     +[open Async open Import let () = (([%log.global.info ""]))]
 
    - changed:  -[open Async open Import let () = Log.info_s log [%message ""]]
-     into:     +[open Async open Import let () = (([%log.info log ""]))]
+     into:     +[open Async open Import let () = (([%log.info log ]))]
 
    - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
 
@@ -905,9 +916,9 @@ let%test_module "" =
     (([%log.info (my log) my_message ~_:(host : Hostname.t)]));
     (([%log.info
    (my log) my_message (host : Hostname.t)[@@legacy_tag_parentheses ]]));
-    (([%log.info (my log) "" ~_:(a b : int) ~_:(b : int)]));
-    (([%log.info (my log) "" (a : int) (b : int)[@@legacy_tag_parentheses ]]));
-    (([%log.info (my log) "" ~a:123[@@legacy_tag_parentheses ]]));
+    (([%log.info (my log) ~_:(a b : int) ~_:(b : int)]));
+    (([%log.info (my log) (a : int) (b : int)[@@legacy_tag_parentheses ]]));
+    (([%log.info (my log) ~a:123[@@legacy_tag_parentheses ]]));
 
     do_thing ~log:(Log.Global.info_s);
     do_thing ~log:(Log.info_s (my log));

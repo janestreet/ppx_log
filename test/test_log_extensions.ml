@@ -88,5 +88,15 @@ let%expect_test "legacy tag parentheses" =
   [%expect {| ((i 5) (i 5)) |}];
   let%bind () = test (fun () -> [%log.global "" [@@legacy_tag_parentheses]]) [%sexp ()] in
   [%expect {| () |}];
+  let%bind () =
+    test
+      (fun () -> [%log (force Log.Global.log) ~a:123 [@@legacy_tag_parentheses]])
+      [%sexp { a = 123 }]
+  in
+  [%expect {| ((a 123)) |}];
+  let%bind () =
+    test (fun () -> [%log.global 123 [@@legacy_tag_parentheses]]) [%sexp 123]
+  in
+  [%expect {| 123 |}];
   Deferred.unit
 ;;

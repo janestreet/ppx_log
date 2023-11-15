@@ -3,4 +3,6 @@
  (ppx_runtime_libraries ppx_sexp_conv.runtime-lib ppx_log.types)
  (libraries ppxlib ppx_here.expander ppx_sexp_conv.expander
   ppx_sexp_message.expander)
- (preprocess (pps ppx_let ppxlib.metaquot)))
+ (preprocess
+  (pps ppx_enumerate ppx_let ppx_sexp_value ppx_variants_conv
+   ppxlib.metaquot)))
