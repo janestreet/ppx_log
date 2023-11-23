@@ -8,7 +8,7 @@ type t =
   ; args : Extension_payload.t
   ; level : Optional_arg.t
   ; time : Optional_arg.t
-  ; tags : Optional_arg.t
+  ; legacy_tags : Optional_arg.t
   ; loc : location
   }
 
@@ -34,9 +34,10 @@ let tags ~tags_attr ~loc ~log_source_position =
   let src_tags = if log_source_position then [ pos_tag ] else [] in
   let attr_tags = tags_attr |> Option.to_list in
   match src_tags @ attr_tags with
-  | [] -> [%expr None]
-  | [ e ] -> [%expr Some [%e e]]
-  | _ :: _ as es -> [%expr Some (List.concat [%e Ast_builder.Default.elist ~loc es])]
+  | [] -> None
+  | [ e ] -> Some (`Labelled e)
+  | _ :: _ as es ->
+    Some (`Labelled [%expr List.concat [%e Ast_builder.Default.elist ~loc es]])
 ;;
 
 let create
@@ -51,7 +52,7 @@ let create
   ~log_source_position
   =
   let loc = { loc with loc_ghost = true } in
-  let tags = Some (`Optional (tags ~tags_attr ~loc ~log_source_position)) in
+  let legacy_tags = tags ~tags_attr ~loc ~log_source_position in
   let level = level_arg ~level_attr ~extension_name_level ~loc in
   let time = Optional_arg.of_optional_expr time_attr in
   let format =
@@ -69,7 +70,7 @@ let create
       Ast_pattern.(parse (pexp_apply __ __)) loc args (fun log_expr args ->
         `Instance log_expr, Extension_payload.Args args)
   in
-  { format; log; args; level; time; tags; loc }
+  { format; log; args; level; time; legacy_tags; loc }
 ;;
 
 let function_name_and_payload format extension_payload ~loc =
@@ -81,31 +82,48 @@ let function_name_and_payload format extension_payload ~loc =
       | `Message_with_extra_tag_parentheses -> true
     in
     let payload_args =
-      Message_sexp.of_extension_payload
-        extension_payload
-        ~render_with_additional_parentheses
-      |> Message_sexp.payload_args ~loc
+      Message_sexp.of_extension_payload extension_payload ~loc
+      |> Message_sexp.payload_args ~render_with_additional_parentheses
     in
-    `Sexp, payload_args
+    `Message, payload_args
   | `Sexp ->
-    (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t]. [%log.global.sexp (...
-       : T.t)] uses [T.sexp_of_t]. *)
-    let payload = Extension_payload.single_expression_or_error extension_payload ~loc in
+    let payload =
+      match Extension_payload.single_expression_or_error extension_payload ~loc with
+      (* [%log.global.sexp (... : T.t)] uses [T.sexp_of_t]. *)
+      | [%expr ([%e? expr] : [%t? typ])] ->
+        let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ in
+        Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
+      (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t].  *)
+      | expr -> expr
+    in
     `Sexp, [ Nolabel, payload ]
   | `Printf -> `Printf, Extension_payload.to_args extension_payload
   | `String ->
-    let payload = Extension_payload.single_expression_or_error extension_payload ~loc in
+    let payload =
+      match Extension_payload.single_expression_or_error extension_payload ~loc with
+      | { pexp_desc = Pexp_constant (Pconst_string (s, loc, delimiter)); pexp_loc; _ } ->
+        Ppx_string.expand ~expr_loc:pexp_loc ~string_loc:loc ~string:s ~delimiter
+        |> Merlin_helpers.hide_expression
+      | expr -> expr
+    in
     `Printf, [ Nolabel, [%expr "%s"]; Nolabel, payload ]
 ;;
 
-let render { format; log; args; level; time; tags; loc } =
+(* The below is copied from [ppx_sexp_message_expander] - see there for reasoning. *)
+let wrap_in_cold_function ~loc expr =
+  [%expr
+    (let[@cold] ppx_log_statement () = [%e expr] in
+     ppx_log_statement () [@nontail]) [@merlin.hide]]
+;;
+
+let render { format; log; args; level; time; legacy_tags; loc } =
   let name, payload_args = function_name_and_payload format args ~loc in
   let function_name = Log_kind.log_function log name ~loc in
   let log_statement =
     List.filter_opt
       [ Optional_arg.to_arg level ~name:"level"
       ; Optional_arg.to_arg time ~name:"time"
-      ; Optional_arg.to_arg tags ~name:"tags"
+      ; Optional_arg.to_arg legacy_tags ~name:"tags"
       ; Log_kind.log_arg log
       ]
     @ payload_args
@@ -113,6 +131,6 @@ let render { format; log; args; level; time; tags; loc } =
   in
   [%expr
     if [%e Log_kind.would_log log ~level ~loc] [@merlin.hide]
-    then [%e log_statement]
+    then [%e wrap_in_cold_function log_statement ~loc]
     else [%e Log_kind.log_default log ~loc]]
 ;;

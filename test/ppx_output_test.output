@@ -1,142 +1,313 @@
 (* -*- mode: tuareg; -*- *)
-let () = Ppx_module_timer_runtime.record_start Ppx_module_timer_runtime.__MODULE__
-let () = Ppx_bench_lib.Benchmark_accumulator.Current_libname.set "ppx_log_test"
-
+let () =
+  Ppx_module_timer_runtime.record_start Ppx_module_timer_runtime.__MODULE__
+let () =
+  Ppx_bench_lib.Benchmark_accumulator.Current_libname.set "ppx_log_test"
 let () =
   Ppx_expect_runtime.Current_file.set
     ~filename_rel_to_project_root:"ppx/ppx_log/test/ppx_output_test.ml"
-;;
-
-let () = Ppx_inline_test_lib.set_lib_and_partition "ppx_log_test" "ppx_output_test"
-
+let () =
+  Ppx_inline_test_lib.set_lib_and_partition "ppx_log_test" "ppx_output_test"
 open! Core
 open! Async
-
-let test () =
-  if Ppx_log_syntax.Global.would_log (Some `Debug) [@merlin.hide]
+let test_locations () =
+  if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
   then
-    Ppx_log_syntax.Global.sexp
-      ~level:`Debug
-      ?tags:None
-      (let ppx_sexp_message () =
-         Ppx_sexp_conv_lib.Sexp.List
-           [ Ppx_sexp_conv_lib.Conv.sexp_of_string "test"
-           ; Ppx_sexp_conv_lib.Sexp.List
-               [ Ppx_sexp_conv_lib.Sexp.Atom "5"; (sexp_of_int [@merlin.hide]) 5 ]
-           ]
-       [@@ocaml.inline never] [@@ocaml.local never] [@@ocaml.specialise never]
-       in
-       ppx_sexp_message () [@nontail])
+    (((let ppx_log_statement () =
+         Ppx_log_syntax.Global.message ~level:`Info
+           (Ppx_log_types.Message_sexp.create None
+              ~tags:[{
+                       Ppx_log_types.Log_tag.name = "";
+                       data =
+                         (String "ppx/ppx_log/test/ppx_output_test.ml:5:20")
+                     }])
+           ((Ppx_log_types.Message_source.Private.code
+               ~pos_fname:"ppx_output_test.ml" ~pos_lnum:5
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                never]
+         [@@ocaml.local never][@@ocaml.specialise never] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
-  if Ppx_log_syntax.Global.would_log (Some `Info) [@merlin.hide]
+  if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
   then
-    Ppx_log_syntax.Global.sexp
-      ~level:`Info
-      ?tags:None
-      (let ppx_sexp_message () =
-         Ppx_sexp_conv_lib.Sexp.List
-           [ Ppx_sexp_conv_lib.Sexp.Atom "5"; (sexp_of_int [@merlin.hide]) 5 ]
-       [@@ocaml.inline never] [@@ocaml.local never] [@@ocaml.specialise never]
-       in
-       ppx_sexp_message () [@nontail])
+    (((let ppx_log_statement () =
+         Ppx_log_syntax.Global.message ~level:`Info
+           (Ppx_log_types.Message_sexp.create None
+              ~tags:[{
+                       Ppx_log_types.Log_tag.name = "[%here ]";
+                       data =
+                         (Sexp
+                            (((Source_code_position.sexp_of_t)
+                               [@merlin.hide ])
+                               {
+                                 Ppx_here_lib.pos_fname =
+                                   "ppx/ppx_log/test/ppx_output_test.ml";
+                                 pos_lnum = 6;
+                                 pos_cnum = 99;
+                                 pos_bol = 78
+                               }))
+                     }])
+           ((Ppx_log_types.Message_source.Private.code
+               ~pos_fname:"ppx_output_test.ml" ~pos_lnum:6
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                never]
+         [@@ocaml.local never][@@ocaml.specialise never] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
-  if Ppx_log_syntax.Global.would_log (Some `Error) [@merlin.hide]
+  if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
   then
-    Ppx_log_syntax.Global.sexp
-      ~level:`Error
-      ?tags:(Some [])
-      (let ppx_sexp_message () =
-         Ppx_sexp_conv_lib.Conv.sexp_of_string "test"
-       [@@ocaml.inline never] [@@ocaml.local never] [@@ocaml.specialise never]
-       in
-       ppx_sexp_message () [@nontail])
+    (((let ppx_log_statement () =
+         Ppx_log_syntax.Global.message ~level:`Info
+           (Ppx_log_types.Message_sexp.create
+              (Some (String_literal "message"))
+              ~tags:[{
+                       Ppx_log_types.Log_tag.name = "";
+                       data =
+                         (String "ppx/ppx_log/test/ppx_output_test.ml:7:30")
+                     }])
+           ((Ppx_log_types.Message_source.Private.code
+               ~pos_fname:"ppx_output_test.ml" ~pos_lnum:7
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                never]
+         [@@ocaml.local never][@@ocaml.specialise never] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
-  let log = force Log.Global.log in
-  if Ppx_log_syntax.would_log log (Some `Debug) [@merlin.hide]
+  if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
   then
-    Ppx_log_syntax.sexp
-      ~level:`Debug
-      ?tags:(Some [ "hello", "world" ])
-      log
-      (let ppx_sexp_message () =
-         Ppx_sexp_conv_lib.Sexp.List
-           [ Ppx_sexp_conv_lib.Conv.sexp_of_string "test"
-           ; Ppx_sexp_conv_lib.Sexp.List
-               [ Ppx_sexp_conv_lib.Sexp.Atom "5"; (sexp_of_int [@merlin.hide]) 5 ]
-           ]
-       [@@ocaml.inline never] [@@ocaml.local never] [@@ocaml.specialise never]
-       in
-       ppx_sexp_message () [@nontail])
-  else Ppx_log_syntax.default;
-  if Ppx_log_syntax.would_log log (Some `Info) [@merlin.hide]
-  then
-    Ppx_log_syntax.sexp
-      ~level:`Info
-      ?tags:None
-      log
-      (let ppx_sexp_message () =
-         Ppx_sexp_conv_lib.Sexp.List
-           [ Ppx_sexp_conv_lib.Sexp.Atom "5"; (sexp_of_int [@merlin.hide]) 5 ]
-       [@@ocaml.inline never] [@@ocaml.local never] [@@ocaml.specialise never]
-       in
-       ppx_sexp_message () [@nontail])
-  else Ppx_log_syntax.default;
-  let my_tags = [ "a", "b" ] in
-  if Ppx_log_syntax.would_log log (Some `Error) [@merlin.hide]
-  then
-    Ppx_log_syntax.sexp
-      ~level:`Error
-      ?tags:(Some my_tags)
-      log
-      (let ppx_sexp_message () =
-         Ppx_sexp_conv_lib.Conv.sexp_of_string "test"
-       [@@ocaml.inline never] [@@ocaml.local never] [@@ocaml.specialise never]
-       in
-       ppx_sexp_message () [@nontail])
-  else Ppx_log_syntax.default
-;;
-
-let test_extensions () =
-  if Ppx_log_syntax.Global.would_log None [@merlin.hide]
-  then Ppx_log_syntax.Global.printf ?tags:None "test %d" 3
+    (((let ppx_log_statement () =
+         Ppx_log_syntax.Global.message ~level:`Info
+           (Ppx_log_types.Message_sexp.create
+              (Some (String_literal "message"))
+              ~tags:[{
+                       Ppx_log_types.Log_tag.name = "[%here ]";
+                       data =
+                         (Sexp
+                            (((Source_code_position.sexp_of_t)
+                               [@merlin.hide ])
+                               {
+                                 Ppx_here_lib.pos_fname =
+                                   "ppx/ppx_log/test/ppx_output_test.ml";
+                                 pos_lnum = 8;
+                                 pos_cnum = 206;
+                                 pos_bol = 175
+                               }))
+                     }])
+           ((Ppx_log_types.Message_source.Private.code
+               ~pos_fname:"ppx_output_test.ml" ~pos_lnum:8
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                never]
+         [@@ocaml.local never][@@ocaml.specialise never] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
-  if Ppx_log_syntax.Global.would_log (Some `Error) [@merlin.hide]
-  then Ppx_log_syntax.Global.printf ~level:`Error ?tags:None "world %s" "yes"
-  else Ppx_log_syntax.Global.default;
-  let log = force Log.Global.log in
-  let generate_sexp () = Sexp.Atom "" in
-  if Ppx_log_syntax.would_log log None [@merlin.hide]
-  then Ppx_log_syntax.sexp ?tags:None log ((sexp_of_int [@merlin.hide]) 5)
-  else Ppx_log_syntax.default;
-  if Ppx_log_syntax.would_log log None [@merlin.hide]
-  then Ppx_log_syntax.sexp ?tags:None log (generate_sexp ())
-  else Ppx_log_syntax.default;
-  let my_level = Some `Debug in
-  if Ppx_log_syntax.would_log log my_level [@merlin.hide]
+  if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
   then
-    Ppx_log_syntax.sexp
-      ?level:my_level
-      ?time:(Some Time_float.epoch)
-      ?tags:None
-      log
-      (let ppx_sexp_message () =
-         Ppx_sexp_conv_lib.Conv.sexp_of_string "test"
-       [@@ocaml.inline never] [@@ocaml.local never] [@@ocaml.specialise never]
-       in
-       ppx_sexp_message () [@nontail])
-  else Ppx_log_syntax.default;
-  if Ppx_log_syntax.Global.would_log None [@merlin.hide]
-  then Ppx_log_syntax.Global.printf ?tags:None "%s" (Int.to_string 3)
-  else Ppx_log_syntax.Global.default;
-  if Ppx_log_syntax.would_log log None [@merlin.hide]
-  then Ppx_log_syntax.printf ?tags:None log "%s" (Int.to_string 3)
-  else Ppx_log_syntax.default;
-  if Ppx_log_syntax.Global.would_log None [@merlin.hide]
-  then Ppx_log_syntax.Global.sexp ?tags:None (Int.sexp_of_t 3)
+    (((let ppx_log_statement () =
+         Ppx_log_syntax.Global.message ~level:`Info
+           (Ppx_log_types.Message_sexp.create
+              (Some (String_literal "message"))
+              ~tags:[{
+                       Ppx_log_types.Log_tag.name = "h";
+                       data =
+                         (String "ppx/ppx_log/test/ppx_output_test.ml:9:33")
+                     }])
+           ((Ppx_log_types.Message_source.Private.code
+               ~pos_fname:"ppx_output_test.ml" ~pos_lnum:9
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                never]
+         [@@ocaml.local never][@@ocaml.specialise never] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
   else Ppx_log_syntax.Global.default
-;;
-
+let test () =
+  if ((Ppx_log_syntax.Global.would_log (Some `Debug))[@merlin.hide ])
+  then
+    (((let ppx_log_statement () =
+         Ppx_log_syntax.Global.message ~level:`Debug
+           (Ppx_log_types.Message_sexp.create (Some (String_literal "test"))
+              ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5) }])
+           ((Ppx_log_types.Message_source.Private.code
+               ~pos_fname:"ppx_output_test.ml" ~pos_lnum:13
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                never]
+         [@@ocaml.local never][@@ocaml.specialise never] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
+  else Ppx_log_syntax.Global.default;
+  (let msg = "test" in
+   if ((Ppx_log_syntax.Global.would_log (Some `Debug))[@merlin.hide ])
+   then
+     (((let ppx_log_statement () =
+          Ppx_log_syntax.Global.message ~level:`Debug
+            (Ppx_log_types.Message_sexp.create (Some (String msg))
+               ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5) }])
+            ((Ppx_log_types.Message_source.Private.code
+                ~pos_fname:"ppx_output_test.ml" ~pos_lnum:15
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                 never]
+          [@@ocaml.local never][@@ocaml.specialise never] in
+        ((ppx_log_statement ())[@nontail ])))
+     [@merlin.hide ])
+   else Ppx_log_syntax.Global.default;
+   if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
+   then
+     (((let ppx_log_statement () =
+          Ppx_log_syntax.Global.message ~level:`Info
+            (Ppx_log_types.Message_sexp.create None
+               ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5) }])
+            ((Ppx_log_types.Message_source.Private.code
+                ~pos_fname:"ppx_output_test.ml" ~pos_lnum:16
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                 never]
+          [@@ocaml.local never][@@ocaml.specialise never] in
+        ((ppx_log_statement ())[@nontail ])))
+     [@merlin.hide ])
+   else Ppx_log_syntax.Global.default;
+   if ((Ppx_log_syntax.Global.would_log (Some `Error))[@merlin.hide ])
+   then
+     (((let ppx_log_statement () =
+          Ppx_log_syntax.Global.message ~level:`Error ~tags:[]
+            (Ppx_log_types.Message_sexp.create (Some (String_literal "test"))
+               ~tags:[])
+            ((Ppx_log_types.Message_source.Private.code
+                ~pos_fname:"ppx_output_test.ml" ~pos_lnum:17
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                 never]
+          [@@ocaml.local never][@@ocaml.specialise never] in
+        ((ppx_log_statement ())[@nontail ])))
+     [@merlin.hide ])
+   else Ppx_log_syntax.Global.default;
+   (let log = force Log.Global.log in
+    if ((Ppx_log_syntax.would_log log (Some `Debug))[@merlin.hide ])
+    then
+      (((let ppx_log_statement () =
+           Ppx_log_syntax.message ~level:`Debug ~tags:[("hello", "world")]
+             log
+             (Ppx_log_types.Message_sexp.create
+                (Some (String_literal "test"))
+                ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5) }])
+             ((Ppx_log_types.Message_source.Private.code
+                 ~pos_fname:"ppx_output_test.ml" ~pos_lnum:19
+                 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                  never]
+           [@@ocaml.local never][@@ocaml.specialise never] in
+         ((ppx_log_statement ())[@nontail ])))
+      [@merlin.hide ])
+    else Ppx_log_syntax.default;
+    if ((Ppx_log_syntax.would_log log (Some `Info))[@merlin.hide ])
+    then
+      (((let ppx_log_statement () =
+           Ppx_log_syntax.message ~level:`Info log
+             (Ppx_log_types.Message_sexp.create None
+                ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5) }])
+             ((Ppx_log_types.Message_source.Private.code
+                 ~pos_fname:"ppx_output_test.ml" ~pos_lnum:20
+                 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                  never]
+           [@@ocaml.local never][@@ocaml.specialise never] in
+         ((ppx_log_statement ())[@nontail ])))
+      [@merlin.hide ])
+    else Ppx_log_syntax.default;
+    (let my_tags = [("a", "b")] in
+     if ((Ppx_log_syntax.would_log log (Some `Error))[@merlin.hide ])
+     then
+       ((let ppx_log_statement () =
+           Ppx_log_syntax.message ~level:`Error ~tags:my_tags log
+             (Ppx_log_types.Message_sexp.create
+                (Some (String_literal "test")) ~tags:[])
+             ((Ppx_log_types.Message_source.Private.code
+                 ~pos_fname:"ppx_output_test.ml" ~pos_lnum:22
+                 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                  never]
+           [@@ocaml.local never][@@ocaml.specialise never] in
+         ((ppx_log_statement ())[@nontail ]))
+       [@merlin.hide ])
+     else Ppx_log_syntax.default)))
+let test_extensions () =
+  if ((Ppx_log_syntax.Global.would_log None)[@merlin.hide ])
+  then
+    (((let ppx_log_statement () = Ppx_log_syntax.Global.printf "test %d" 3
+         [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
+                                                      never] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
+  else Ppx_log_syntax.Global.default;
+  if ((Ppx_log_syntax.Global.would_log (Some `Error))[@merlin.hide ])
+  then
+    (((let ppx_log_statement () =
+         Ppx_log_syntax.Global.printf ~level:`Error "world %s" "yes"[@@ocaml.inline
+                                                                    never]
+         [@@ocaml.local never][@@ocaml.specialise never] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
+  else Ppx_log_syntax.Global.default;
+  (let log = force Log.Global.log in
+   let generate_sexp () = Sexp.Atom "" in
+   if ((Ppx_log_syntax.would_log log None)[@merlin.hide ])
+   then
+     (((let ppx_log_statement () =
+          Ppx_log_syntax.sexp log (((sexp_of_int)[@merlin.hide ]) 5)[@@ocaml.inline
+                                                                    never]
+          [@@ocaml.local never][@@ocaml.specialise never] in
+        ((ppx_log_statement ())[@nontail ])))
+     [@merlin.hide ])
+   else Ppx_log_syntax.default;
+   if ((Ppx_log_syntax.would_log log None)[@merlin.hide ])
+   then
+     (((let ppx_log_statement () = Ppx_log_syntax.sexp log (generate_sexp ())
+          [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
+                                                       never] in
+        ((ppx_log_statement ())[@nontail ])))
+     [@merlin.hide ])
+   else Ppx_log_syntax.default;
+   (let my_level = Some `Debug in
+    if ((Ppx_log_syntax.would_log log my_level)[@merlin.hide ])
+    then
+      (((let ppx_log_statement () =
+           Ppx_log_syntax.message ?level:my_level
+             ?time:(Some Time_float.epoch) log
+             (Ppx_log_types.Message_sexp.create
+                (Some (String_literal "test")) ~tags:[])
+             ((Ppx_log_types.Message_source.Private.code
+                 ~pos_fname:"ppx_output_test.ml" ~pos_lnum:33
+                 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
+                                                                  never]
+           [@@ocaml.local never][@@ocaml.specialise never] in
+         ((ppx_log_statement ())[@nontail ])))
+      [@merlin.hide ])
+    else Ppx_log_syntax.default;
+    if ((Ppx_log_syntax.Global.would_log None)[@merlin.hide ])
+    then
+      (((let ppx_log_statement () =
+           Ppx_log_syntax.Global.printf "%s" (Int.to_string 3)[@@ocaml.inline
+                                                                never]
+           [@@ocaml.local never][@@ocaml.specialise never] in
+         ((ppx_log_statement ())[@nontail ])))
+      [@merlin.hide ])
+    else Ppx_log_syntax.Global.default;
+    if ((Ppx_log_syntax.would_log log None)[@merlin.hide ])
+    then
+      (((let ppx_log_statement () =
+           Ppx_log_syntax.printf log "%s" (Int.to_string 3)[@@ocaml.inline
+                                                             never][@@ocaml.local
+                                                                    never]
+           [@@ocaml.specialise never] in
+         ((ppx_log_statement ())[@nontail ])))
+      [@merlin.hide ])
+    else Ppx_log_syntax.default;
+    if ((Ppx_log_syntax.Global.would_log None)[@merlin.hide ])
+    then
+      (((let ppx_log_statement () =
+           Ppx_log_syntax.Global.sexp (Int.sexp_of_t 3)[@@ocaml.inline never]
+           [@@ocaml.local never][@@ocaml.specialise never] in
+         ((ppx_log_statement ())[@nontail ])))
+      [@merlin.hide ])
+    else Ppx_log_syntax.Global.default))
 let () = Ppx_inline_test_lib.unset_lib "ppx_log_test"
 let () = Ppx_expect_runtime.Current_file.unset ()
 let () = Ppx_bench_lib.Benchmark_accumulator.Current_libname.unset ()
-let () = Ppx_module_timer_runtime.record_until Ppx_module_timer_runtime.__MODULE__
+let () =
+  Ppx_module_timer_runtime.record_until Ppx_module_timer_runtime.__MODULE__

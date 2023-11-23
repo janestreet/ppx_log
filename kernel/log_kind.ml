@@ -26,6 +26,8 @@ let log_function (type data) t name ~loc =
   | `Sexp, `Global -> [%expr Ppx_log_syntax.Global.sexp]
   | `Printf, `Instance (_ : data) -> [%expr Ppx_log_syntax.printf]
   | `Printf, `Global -> [%expr Ppx_log_syntax.Global.printf]
+  | `Message, `Instance (_ : data) -> [%expr Ppx_log_syntax.message]
+  | `Message, `Global -> [%expr Ppx_log_syntax.Global.message]
 ;;
 
 let log_default (type data) t ~loc =

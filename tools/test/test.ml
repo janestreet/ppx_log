@@ -26,7 +26,12 @@ let%expect_test "compare input and output log statement behaviour" =
     +|Output after refactor
       1969-12-31 19:00:00.000000-05:00 what's up /world\
       1969-12-31 19:00:00.000000-05:00 /world\
+      1969-12-31 19:00:00.000000-05:00
+      1969-12-31 19:00:00.000000-05:00 Info ()
       1969-12-31 19:00:00.000000-05:00 Info error
+      1969-12-31 19:00:00.000000-05:00 Info (host"my host")
+      1969-12-31 19:00:00.000000-05:00 Info (host"my host")
+      1969-12-31 19:00:00.000000-05:00 Info ((host"my host")(e"my error"))
       1969-12-31 19:00:00.000000-05:00 Info ((host"my host")(e"my error")) -- [hello2: world]
       1969-12-31 19:00:00.000000-05:00 Info (message3"my error")
       1969-12-31 19:00:00.000000-05:00 Info (message4(i 5))
@@ -79,7 +84,12 @@ let%expect_test "compare input and output log statement behaviour" =
     +|Output after refactor
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level())(message(String"what's up /world\\"))(tags())))
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level())(message(String"/world\\"))(tags())))
+      (V2((time(1969-12-31 19:00:00.000000-05:00))(level())(message(String""))(tags())))
+      (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(Sexp()))(tags())))
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(Sexp error))(tags())))
+      (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(Sexp(host"my host")))(tags())))
+      (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(Sexp(host"my host")))(tags())))
+      (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(Sexp((host"my host")(e"my error"))))(tags())))
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(Sexp((host"my host")(e"my error"))))(tags((hello2 world)))))
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(Sexp(message3"my error")))(tags())))
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(Sexp(message4(i 5))))(tags())))

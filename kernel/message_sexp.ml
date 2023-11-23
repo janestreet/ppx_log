@@ -2,83 +2,82 @@ open! Base
 open! Import
 open Ppxlib
 
-(** Represents the data relevant for constructing a message sexp for a log statement. *)
 type t =
-  | Regular_message of Extension_payload.t
-  | Message_with_extra_tag_parentheses of
-      { message : expression option
-      ; tags : (arg_label * expression) list
-      }
-[@@deriving variants]
+  { message_label : [ `Literal of constant | `String_expr of expression ] option
+  ; tags : (arg_label * expression) list
+  ; loc : location
+  }
 
-let parse_message_and_tags extension_payload =
-  (* For compatibility with [%sexp "message", { a1 : t1; a2 : t2 }] producing sexps
-     where the tags are in an extra layer of parentheses (message ((a1 .) (a2 .))), we
-     have this case.
-
-     [%message] has some magic in 2 cases:
-     - "" = Nothing at all. So:
-       [%message "hello" ~i:(3 : int) ~j:(3 : int)] -> (hello (i 3) (j 3))
-       [%message "" ~i:(3 : int) ~j:(3 : int)] -> ((i 3) (j 3))
-     - If the final output has format (<one-elt>), the outer parentheses are removed.
-       [%message "hello"] -> hello, NOT (hello)
-       [%message "" ~i:(3 : int)] -> (i 3), NOT ((i 3))
-     - However, [%message ""] = () = Sexp.List [].
-
-     This makes it hard to directly use [Ppx_sexp_message_expander]. Instead I think
-     it's most straightforward to feed the arguments in one by one, handle the first
-     argument explicitly, and add parens afterwards. *)
-  match Extension_payload.to_args extension_payload with
-  | hd :: tl ->
-    (* The first argument may be a tag, nothing, or a message. *)
-    (match hd with
-     (* [%log log "" ...] has "" ignored *)
-     | Nolabel, [%expr ""] -> None, tl
-     (* [%log log (a : t1) (b : t2)] treats a and b both as tags *)
-     | _, [%expr ([%e? _] : [%t? _])]
-     (* [%log log ~label:...] treats the the first arg as a tag as well *)
-     | (Labelled (_ : string) | Optional (_ : string)), (_ : expression) -> None, hd :: tl
-     (* Otherwise, [%log [%e e]] ought to be either a constant or an unlabelled
-        expression, in which case it can be interpreted as a message payload. *)
-     | Nolabel, hd -> Some hd, tl)
-  | [] -> None, []
+let of_extension_payload extension_payload ~loc =
+  let message_label, tags =
+    match Extension_payload.to_args extension_payload with
+    | hd :: tl ->
+      (* The first argument may be a tag, nothing, or a label. *)
+      (match hd with
+       (* [%log log "" ...] has "" ignored *)
+       | Nolabel, [%expr ""] -> None, tl
+       (* [%log log (a : t1) (b : t2)] treats a and b both as tags *)
+       | _, [%expr ([%e? _] : [%t? _])]
+       (* [%log log ~label:...] treats the the first arg as a tag as well *)
+       | (Labelled (_ : string) | Optional (_ : string)), (_ : expression)
+       (* [%message] has a special case for [%here]. We can interpret it as a tag. *)
+       | Nolabel, [%expr [%here]] -> None, hd :: tl
+       (* Unlabelled literals can be interpreted as a label. These should only be
+          strings in practice. *)
+       | Nolabel, { pexp_desc = Pexp_constant c; _ } -> Some (`Literal c), tl
+       (* Otherwise, [%log [%e e]] ought to be an unlabelled expression, in which case it
+          can be interpreted as a string label payload. *)
+       | Nolabel, hd -> Some (`String_expr hd), tl)
+    | [] -> None, []
+  in
+  { message_label; tags; loc }
 ;;
 
-let of_extension_payload extension_payload ~render_with_additional_parentheses =
-  if render_with_additional_parentheses
-  then (
-    let message, tags = parse_message_and_tags extension_payload in
-    Message_with_extra_tag_parentheses { message; tags })
-  else Regular_message extension_payload
+let constant_to_string_expr constant ~loc =
+  let open (val Ast_builder.make loc) in
+  match constant with
+  | Pconst_string _ as string_constant -> pexp_constant string_constant
+  | _ ->
+    [%expr
+      match
+        [%e
+          Ppx_sexp_message_expander.sexp_of_labelled_exprs
+            [ Nolabel, pexp_constant constant ]
+            ~omit_nil:false
+            ~loc]
+      with
+      | Atom x -> x
+      | List _ -> assert false]
 ;;
 
-let expand e ~loc =
-  Ppx_sexp_message_expander.sexp_of_labelled_exprs [ e ] ~omit_nil:false ~loc
+let render_message_label ~loc = function
+  | None -> [%expr None]
+  | Some (`Literal const) ->
+    [%expr Some (String_literal [%e constant_to_string_expr const ~loc])]
+  | Some (`String_expr expr) -> [%expr Some (String [%e expr])]
 ;;
 
-let payload_args t ~loc =
-  match t with
-  | Regular_message extension_payload ->
-    let sexp =
-      Extension_payload.to_args extension_payload
-      |> Ppx_sexp_message_expander.sexp_of_labelled_exprs ~omit_nil:false ~loc
-    in
-    [ Nolabel, sexp ]
-  | Message_with_extra_tag_parentheses { message; tags } ->
-    let tags =
-      match tags with
-      | [] -> None
-      | _ :: _ as tags ->
-        let tags = List.map tags ~f:(expand ~loc) |> Ast_builder.Default.elist ~loc in
-        Some [%expr Core.Sexp.List [%e tags]]
-    in
-    let sexp =
-      match message, tags with
-      | None, None -> [%expr Core.Sexp.List []]
-      | None, Some tags -> tags
-      | Some msg, None -> expand (Nolabel, msg) ~loc
-      | Some msg, Some tags ->
-        [%expr Core.Sexp.List [ [%e expand (Nolabel, msg) ~loc]; [%e tags] ]]
-    in
-    [ Nolabel, sexp ]
+let render_source ~loc =
+  let open (val Ast_builder.make loc) in
+  [%expr
+    Ppx_log_types.Message_source.Private.code
+      ~pos_fname:[%e estring loc.loc_start.pos_fname]
+      ~pos_lnum:[%e eint loc.loc_start.pos_lnum]
+      ~module_name:Stdlib.__MODULE__ [@merlin.hide]]
+;;
+
+let payload_args { message_label; tags; loc } ~render_with_additional_parentheses =
+  let message_label = render_message_label message_label ~loc in
+  let tags = List.map tags ~f:Log_tag.parse_arg |> Log_tag.render_list ~loc in
+  let expr =
+    if render_with_additional_parentheses
+    then
+      [%expr
+        Ppx_log_types.Message_sexp.create
+          [%e message_label]
+          ~tags:[%e tags]
+          ~legacy_render_with_additional_parentheses:true]
+    else [%expr Ppx_log_types.Message_sexp.create [%e message_label] ~tags:[%e tags]]
+  in
+  [ Nolabel, expr; Nolabel, render_source ~loc ]
 ;;

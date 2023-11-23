@@ -8,6 +8,5 @@
   %{workspace_root}/bin/apply-style jbuild)
  (action
   (bash
-    "< %{first_dep} %{workspace_root}/bin/apply-style -- format - -original-file ppx_output_test.ml -directory-config jbuild | \\\
-   \ncat <(echo '(* -*- mode: tuareg; -*- *)') - | \\\
+    "cat <(echo '(* -*- mode: tuareg; -*- *)') %{first_dep}  | \\\
    \n%{workspace_root}/app/make-corrected-file/bin/main.exe ppx_output_test.output")))

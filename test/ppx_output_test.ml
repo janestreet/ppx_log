@@ -1,8 +1,18 @@
 open! Core
 open! Async
 
+let test_locations () =
+  [%log.global.info [%here]];
+  [%log.global.info ([%here] : Source_code_position.t)];
+  [%log.global.info "message" [%here]];
+  [%log.global.info "message" ([%here] : Source_code_position.t)];
+  [%log.global.info "message" ~h:[%here]]
+;;
+
 let test () =
   [%log.global.debug "test" (5 : int)];
+  let msg = "test" in
+  [%log.global.debug msg (5 : int)];
   [%log.global.info (5 : int)];
   [%log.global.error "test" [@@tags []]];
   let log = force Log.Global.log in

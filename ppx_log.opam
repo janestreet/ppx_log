@@ -12,16 +12,20 @@ build: [
 depends: [
   "ocaml" {>= "4.14.0"}
   "base"
+  "ppx_compare"
   "ppx_enumerate"
+  "ppx_expect"
+  "ppx_fields_conv"
   "ppx_here"
   "ppx_let"
   "ppx_sexp_conv"
   "ppx_sexp_message"
   "ppx_sexp_value"
-  "ppx_variants_conv"
+  "ppx_string"
   "sexplib"
-  "dune"              {>= "2.0.0"}
-  "ppxlib"            {>= "0.28.0"}
+  "stdio"
+  "dune"             {>= "2.0.0"}
+  "ppxlib"           {>= "0.28.0"}
 ]
 available: arch != "arm32" & arch != "x86_32"
 synopsis: "Ppx_sexp_message-like extension nodes for lazily rendering log messages"

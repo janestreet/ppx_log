@@ -16,12 +16,7 @@ let to_args = function
 
 let single_expression_or_error t ~loc =
   match t with
-  | Args [ (Nolabel, expr) ] | Expression expr ->
-    (match expr.pexp_desc with
-     | Pexp_constraint (expr, typ) ->
-       let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ in
-       Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
-     | _ -> expr)
+  | Args [ (Nolabel, expr) ] | Expression expr -> expr
   | (_ : t) ->
     Ast_builder.Default.pexp_extension
       ~loc

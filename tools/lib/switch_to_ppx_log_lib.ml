@@ -938,9 +938,29 @@ let%test_module "" =
 
 open! Async
 
+module Mode = struct
+  module T = struct
+    type t = [ `Strict ] [@@deriving enumerate, sexp_of]
+  end
+
+  include T
+
+  let param =
+    Roundtrippable_command_param.create_required_from_enum
+      "mode"
+      (module T)
+      ~doc:
+        "Strict mode creates slightly uglier code in a few cases in order to completely \
+         preserve output format (e.g., parentheses and locations of dynamic tags). There \
+         will be a loose mode that does not preserve output format, but that will come \
+         after other changes to ppx_log (targetting later in 2023-11)"
+  ;;
+end
+
 type t =
   { actually_transform : bool
   ; cache_dir : File_path.t
+  ; mode : Mode.t
   }
 [@@deriving fields ~getters ~iterators:(create, make_creator)]
 
@@ -948,6 +968,7 @@ let param =
   Roundtrippable_command_param.Record_builder.(
     build_for_record
       (Fields.make_creator
+         ~mode:(field Mode.param)
          ~actually_transform:
            (field
               (Roundtrippable_command_param.create_required
@@ -962,8 +983,10 @@ let param =
                  File_path.arg_type
                  ~to_string:File_path.to_string
                  ~doc:
-                   "PATH Use this path to cache shared computations across different \
-                    workers"))))
+                   "PATH This smash tool runs multiple workers in parallel and uses a \
+                    temporary directory to save shared computations about what modules \
+                    [Log]. This is the path to the temporary directory. (Usually \
+                    $(mktemp -d) is fine, but this tool doesn't clean up the directory.)"))))
 ;;
 
 module Cache = struct
@@ -1028,7 +1051,12 @@ let command =
   let find_files_based_on =
     Refactor_bash.Rg.create ~matching:(Regex {|(log|Log|L)\.|}) ()
   in
-  let instance_impl { actually_transform; cache_dir } ~repo:_ ~project ~session:_ filename
+  let instance_impl
+    { actually_transform; cache_dir; mode = `Strict }
+    ~repo:_
+    ~project
+    ~session:_
+    filename
     =
     if String.is_suffix ~suffix:".ml" (File_path.to_string filename)
     then (
@@ -1046,8 +1074,6 @@ let command =
     ~find_files_based_on
     ~instance_impl
     ~shared_param:param
-    ~summary:
-      "Replaces all Log[.Global].(info|error|debug)_s calls with [%message] arguments \
-       with the ppx_log equivalents"
+    ~summary:"Replaces Log[.Global] logging functions with ppx_log equivalents"
     ()
 ;;

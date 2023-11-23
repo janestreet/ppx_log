@@ -14,6 +14,15 @@ let%expect_test "logging with extra attributes" =
   return ()
 ;;
 
+let%expect_test "ppx_string use" =
+  Log.Global.For_testing.use_test_output ();
+  let str = "world" in
+  [%log.global.string "hello %{str} %{3#Int}"];
+  let%bind () = Log.Global.flushed () in
+  [%expect {| hello world 3 |}];
+  return ()
+;;
+
 let%expect_test "*_sexp and *_format extensions" =
   Log.Global.For_testing.use_test_output ();
   let e = error_s [%message "hello" (5 : int)] in
@@ -99,4 +108,20 @@ let%expect_test "legacy tag parentheses" =
   in
   [%expect {| 123 |}];
   Deferred.unit
+;;
+
+let%expect_test "logging non-string literals (expected extremely rare / unused, but \
+                 technically possible in [%message], so just here for demonstration)"
+  =
+  [%log.global 'c'];
+  [%log.global '\000'];
+  [%log.global 5];
+  [%log.global 3.14e-1];
+  let%bind () = Log.Global.flushed () in
+  [%expect {|
+    c
+    "\000"
+    5
+    0.314 |}];
+  return ()
 ;;

@@ -26,6 +26,9 @@ let ext kind =
 let extensions = List.map Extension_kind.all ~f:ext
 let () = Driver.register_transformation "log" ~extensions
 
+module Log_tag = Log_tag
+module Tag_data = Tag_data
+
 module For_testing = struct
   let extension_names = List.map Extension_kind.all ~f:Extension_kind.name
 end

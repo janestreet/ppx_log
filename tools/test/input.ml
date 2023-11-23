@@ -32,7 +32,12 @@ let do_log () =
   let open Async in
   Log.Global.string string_needing_escape;
   Log.string (log ()) {|/world\|};
+  Log.string (log ()) "";
+  Log.Global.info_s [%message ""];
   Log.Global.info_s [%message error_str];
+  Log.Global.info_s [%message "" (host : String.t)];
+  Log.Global.info_s [%message (host : String.t)];
+  Log.Global.info_s [%message "" (host : String.t) (e : Error.t)];
   Log.Global.info_s [%message (host : String.t) (e : Error.t)] ~tags:[ "hello2", "world" ];
   Log.Global.info_s [%message "message3" ~_:(List.hd_exn errors : Error.t)];
   Log.Global.info_s [%message "message4" (i : (int option[@sexp.option]))];
