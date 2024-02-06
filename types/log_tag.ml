@@ -6,6 +6,7 @@ type t =
   ; data : Tag_data.t
   }
 
+let of_pair (name, data) = { name; data }
 let string_pair (name, data) = { name; data = String data }
 
 module Verbose = struct

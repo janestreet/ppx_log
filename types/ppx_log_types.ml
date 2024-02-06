@@ -3,9 +3,9 @@
 
 open! Base
 open! Import
-open Sexplib
 module Level = Level
 module Log_tag = Log_tag
+module Message_data = Message_data
 module Message_sexp = Message_sexp
 module Message_source = Message_source
 module Tag_data = Tag_data
@@ -22,28 +22,12 @@ module type S = sig
   val would_log : t -> Level.t option -> bool
   val default : return_type
 
-  val printf
-    :  ?level:Level.t
-    -> ?time:time
-    -> ?tags:(string * string) list
-    -> t
-    -> ('a, unit, string, return_type) format4
-    -> 'a
-
-  val sexp
-    :  ?level:Level.t
-    -> ?time:time
-    -> ?tags:(string * string) list
-    -> t
-    -> Sexp.t
-    -> return_type
-
   val message
     :  ?level:Level.t
     -> ?time:time
     -> ?tags:(string * string) list
     -> t
-    -> Message_sexp.t
+    -> Message_data.t
     -> Message_source.t
     -> return_type
 
@@ -53,26 +37,16 @@ module type S = sig
     val would_log : Level.t option -> bool
     val default : return_type
 
-    val printf
-      :  ?level:Level.t
-      -> ?time:time
-      -> ?tags:(string * string) list
-      -> ('a, unit, string, return_type) format4
-      -> 'a
-
     val message
       :  ?level:Level.t
       -> ?time:time
       -> ?tags:(string * string) list
-      -> Message_sexp.t
+      -> Message_data.t
       -> Message_source.t
-      -> return_type
-
-    val sexp
-      :  ?level:Level.t
-      -> ?time:time
-      -> ?tags:(string * string) list
-      -> Sexp.t
       -> return_type
   end
 end
+
+open Sexplib
+
+let (_ : Sexp.t) = List []

@@ -125,3 +125,13 @@ let%expect_test "logging non-string literals (expected extremely rare / unused, 
     0.314 |}];
   return ()
 ;;
+
+let%expect_test "printf format string edge case" =
+  (* A previous iteration of the ppx translated format extensions to [sprintf]s which have
+     a slightly different format string type than [printf], and thus cause this kind of
+     expression to not compile. *)
+  let print s = if true then printf s else [%log.global.info_format s] in
+  print "hello";
+  [%expect {| hello |}];
+  Deferred.unit
+;;

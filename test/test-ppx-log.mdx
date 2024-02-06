@@ -33,8 +33,8 @@ extensions fails like so:
 
 ```ocaml
 # open Core;;
-# [%log.debug l_debug "wow"] ; flush ()
-Line 1, characters 1-27:
+# [%log.global.debug "wow"];
+Line 1, characters 1-26:
 Error: Unbound module Ppx_log_syntax
 ```
 
@@ -147,9 +147,6 @@ Then, we don't raise if we don't print the tags!
 - : unit = ()
 # [%log.debug tagged_l_debug "this will throw" [@@tags [ "tag", failwith "error" ]]] ; flush ()
 Exception: (Failure error).
-# [%log.debug tagged_l_debug "this won't throw" [@@tags [ "tag", "success" ]]] ; flush ()
-1969-12-31 19:00:00.000000-05:00 Debug "this won't throw" -- [tag: success]
-- : unit = ()
 ```
 
 Time to try logging globally! Let's set up our global logger.

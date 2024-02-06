@@ -57,27 +57,15 @@ let render_message_label ~loc = function
   | Some (`String_expr expr) -> [%expr Some (String [%e expr])]
 ;;
 
-let render_source ~loc =
-  let open (val Ast_builder.make loc) in
-  [%expr
-    Ppx_log_types.Message_source.Private.code
-      ~pos_fname:[%e estring loc.loc_start.pos_fname]
-      ~pos_lnum:[%e eint loc.loc_start.pos_lnum]
-      ~module_name:Stdlib.__MODULE__ [@merlin.hide]]
-;;
-
-let payload_args { message_label; tags; loc } ~render_with_additional_parentheses =
+let render { message_label; tags; loc } ~render_with_additional_parentheses =
   let message_label = render_message_label message_label ~loc in
   let tags = List.map tags ~f:Log_tag.parse_arg |> Log_tag.render_list ~loc in
-  let expr =
-    if render_with_additional_parentheses
-    then
-      [%expr
-        Ppx_log_types.Message_sexp.create
-          [%e message_label]
-          ~tags:[%e tags]
-          ~legacy_render_with_additional_parentheses:true]
-    else [%expr Ppx_log_types.Message_sexp.create [%e message_label] ~tags:[%e tags]]
-  in
-  [ Nolabel, expr; Nolabel, render_source ~loc ]
+  if render_with_additional_parentheses
+  then
+    [%expr
+      Ppx_log_types.Message_sexp.create
+        [%e message_label]
+        ~tags:[%e tags]
+        ~legacy_render_with_additional_parentheses:true]
+  else [%expr Ppx_log_types.Message_sexp.create [%e message_label] ~tags:[%e tags]]
 ;;

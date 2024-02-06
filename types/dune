@@ -1,3 +1,7 @@
-(library (name ppx_log_types) (public_name ppx_log.types)
+(library
+ (name ppx_log_types)
+ (public_name ppx_log.types)
  (libraries base sexplib stdio)
- (preprocess (pps ppx_sexp_value ppx_sexp_conv ppx_fields_conv ppx_expect)))
+ (preprocess
+  (pps ppx_sexp_value ppx_sexp_conv ppx_expect ppx_fields_conv
+    ppx_variants_conv)))

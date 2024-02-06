@@ -6,8 +6,4 @@ open Ppxlib
 type t
 
 val of_extension_payload : Extension_payload.t -> loc:location -> t
-
-val payload_args
-  :  t
-  -> render_with_additional_parentheses:bool
-  -> (arg_label * expression) list
+val render : t -> render_with_additional_parentheses:bool -> expression

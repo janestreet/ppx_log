@@ -20,14 +20,10 @@ let would_log (type data) log ~level ~loc =
   | `Global -> [%expr Ppx_log_syntax.Global.would_log [%e level]]
 ;;
 
-let log_function (type data) t name ~loc =
-  match name, t with
-  | `Sexp, `Instance (_ : data) -> [%expr Ppx_log_syntax.sexp]
-  | `Sexp, `Global -> [%expr Ppx_log_syntax.Global.sexp]
-  | `Printf, `Instance (_ : data) -> [%expr Ppx_log_syntax.printf]
-  | `Printf, `Global -> [%expr Ppx_log_syntax.Global.printf]
-  | `Message, `Instance (_ : data) -> [%expr Ppx_log_syntax.message]
-  | `Message, `Global -> [%expr Ppx_log_syntax.Global.message]
+let log_function (type data) t ~loc =
+  match t with
+  | `Instance (_ : data) -> [%expr Ppx_log_syntax.message]
+  | `Global -> [%expr Ppx_log_syntax.Global.message]
 ;;
 
 let log_default (type data) t ~loc =

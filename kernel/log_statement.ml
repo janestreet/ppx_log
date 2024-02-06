@@ -73,7 +73,17 @@ let create
   { format; log; args; level; time; legacy_tags; loc }
 ;;
 
-let function_name_and_payload format extension_payload ~loc =
+let render_source ~loc =
+  let open (val Ast_builder.make loc) in
+  [%expr
+    Ppx_log_types.Message_source.Private.code
+      ~pos_fname:[%e estring loc.loc_start.pos_fname]
+      ~pos_lnum:[%e eint loc.loc_start.pos_lnum]
+      ~module_name:Stdlib.__MODULE__ [@merlin.hide]]
+;;
+
+let message_data format extension_payload ~loc =
+  let open (val Ast_builder.make loc) in
   match format with
   | (`Message | `Message_with_extra_tag_parentheses) as format ->
     let render_with_additional_parentheses =
@@ -81,11 +91,11 @@ let function_name_and_payload format extension_payload ~loc =
       | `Message -> false
       | `Message_with_extra_tag_parentheses -> true
     in
-    let payload_args =
+    let payload =
       Message_sexp.of_extension_payload extension_payload ~loc
-      |> Message_sexp.payload_args ~render_with_additional_parentheses
+      |> Message_sexp.render ~render_with_additional_parentheses
     in
-    `Message, payload_args
+    [%expr `Structured [%e payload]]
   | `Sexp ->
     let payload =
       match Extension_payload.single_expression_or_error extension_payload ~loc with
@@ -96,8 +106,7 @@ let function_name_and_payload format extension_payload ~loc =
       (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t].  *)
       | expr -> expr
     in
-    `Sexp, [ Nolabel, payload ]
-  | `Printf -> `Printf, Extension_payload.to_args extension_payload
+    [%expr `Sexp [%e payload]]
   | `String ->
     let payload =
       match Extension_payload.single_expression_or_error extension_payload ~loc with
@@ -106,7 +115,7 @@ let function_name_and_payload format extension_payload ~loc =
         |> Merlin_helpers.hide_expression
       | expr -> expr
     in
-    `Printf, [ Nolabel, [%expr "%s"]; Nolabel, payload ]
+    [%expr `String [%e payload]]
 ;;
 
 (* The below is copied from [ppx_sexp_message_expander] - see there for reasoning. *)
@@ -117,17 +126,33 @@ let wrap_in_cold_function ~loc expr =
 ;;
 
 let render { format; log; args; level; time; legacy_tags; loc } =
-  let name, payload_args = function_name_and_payload format args ~loc in
-  let function_name = Log_kind.log_function log name ~loc in
-  let log_statement =
+  let open (val Ast_builder.make loc) in
+  let function_name = Log_kind.log_function log ~loc in
+  let make_log_statement data =
     List.filter_opt
       [ Optional_arg.to_arg level ~name:"level"
       ; Optional_arg.to_arg time ~name:"time"
       ; Optional_arg.to_arg legacy_tags ~name:"tags"
       ; Log_kind.log_arg log
+      ; Some (Nolabel, data)
+      ; Some (Nolabel, render_source ~loc)
       ]
-    @ payload_args
     |> Ast_builder.Default.pexp_apply function_name ~loc
+  in
+  let log_statement =
+    match format with
+    | `Printf ->
+      (* Printf is handled with a ksprintf, so it's separated out from [message_data]. We
+         could maybe use a [sprintf] instead, but it causes format strings to have a
+         slightly different type (the last type parameter which represents the return
+         value of the format string is a string, not unit).
+
+         The log statement itself returns unit, so I think unit makes sense here. *)
+      pexp_apply
+        [%expr Printf.ksprintf (fun str -> [%e make_log_statement [%expr `String str]])]
+        (Extension_payload.to_args args)
+    | (`String | `Sexp | `Message | `Message_with_extra_tag_parentheses) as format ->
+      make_log_statement (message_data format args ~loc)
   in
   [%expr
     if [%e Log_kind.would_log log ~level ~loc] [@merlin.hide]

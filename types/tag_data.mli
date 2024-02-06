@@ -12,6 +12,8 @@ type t =
 
 module Without_type_label : sig
   type nonrec t = t [@@deriving sexp_of]
+
+  val to_string : t -> string
 end
 
 module With_type_label : sig

@@ -6,6 +6,7 @@ type t =
   ; data : Tag_data.t
   }
 
+val of_pair : string * Tag_data.t -> t
 val string_pair : string * string -> t
 
 module Verbose : sig
