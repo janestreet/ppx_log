@@ -35,7 +35,9 @@ extensions fails like so:
 # open Core;;
 # [%log.global.debug "wow"];
 Line 1, characters 1-26:
-Error: Unbound module Ppx_log_syntax
+Alert ppx_log_syntax_not_in_scope: Ppx_log_syntax.Global.message
+In order to use [ppx_log], you need to have a [Ppx_log_syntax] in scope. This is usually provided with [open Async], [open Async_log.Ppx_log_syntax], or [open Async_log_kernel.Ppx_log_syntax].
+- : Ppx_log_syntax.return_type = `Ppx_log_syntax_implementation_missing
 ```
 
 We can open `Async` to provide a `Ppx_log_syntax`.
@@ -80,9 +82,9 @@ Debug messages should not show up using the Info log:
 # [%log.debug l_info "debug"]
 - : unit = ()
 # [%log.info l_info "info"]
+logged: info
 - : unit = ()
 # [%log.error l_info "error"] ; flush ()
-logged: info
 logged: error
 - : unit = ()
 ```

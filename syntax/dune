@@ -1,0 +1,5 @@
+(library
+ (name ppx_log_syntax)
+ (public_name ppx_log.syntax)
+ (libraries ppx_log_types)
+ (preprocess no_preprocessing))

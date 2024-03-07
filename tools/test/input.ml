@@ -88,6 +88,15 @@ let do_log () =
   Log.Global.flushed ()
 ;;
 
+let test_alias () =
+  let open! Async in
+  let log_alias = Log.Global.string in
+  (* We need to ignore [log_alias] because the smash tool doesn't automatically remove it
+     in the output. *)
+  ignore (log_alias : string -> unit);
+  log_alias "hello"
+;;
+
 let test_import () =
   let open! Async in
   let open! Import in

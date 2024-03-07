@@ -591,8 +591,14 @@ module Exported_log_module = struct
     let log = lid "Log" in
     let initial_bindings =
       [ [ log, `Not_defined ]
-      ; [ lid "Async.Log", `Async_log; lid "Async_log", `Async_log ]
-      ; [ lid "Async.Log.Global", `Global_log; lid "Async_log.Global", `Global_log ]
+      ; [ lid "Log_extended", `Async_log
+        ; lid "Async.Log", `Async_log
+        ; lid "Async_log", `Async_log
+        ]
+      ; [ lid "Log_extended.Global", `Global_log
+        ; lid "Async.Log.Global", `Global_log
+        ; lid "Async_log.Global", `Global_log
+        ]
       ]
       |> List.concat
       |> Bindings.of_alist_exn
@@ -628,11 +634,11 @@ let bindings ~exported_log_modules =
   List.fold async_log_aliases ~init:bindings ~f:(fun bindings (src, dst) ->
     Bindings.with_alias bindings ~src ~dst)
   |> Bindings.with_alias ~src:(lid "Async_log") ~dst:(lid "Async.Log")
+  |> Bindings.with_alias ~src:(lid "Async_log") ~dst:(lid "Log_extended")
   |> Bindings.with_alias ~src:(lid "Async_log") ~dst:(lid "Kazoo_async.Log")
 ;;
 
-let parse editor ~actually_transform ~exported_log_modules =
-  let initial_bindings = bindings ~exported_log_modules in
+let convert_callsites_to_ppx_log editor ~actually_transform ~initial_bindings =
   let partial_application_cr =
     "Consider using [ppx_log] directly insteading of partially applying a log function \
      in [Async_log]."
@@ -722,17 +728,143 @@ let parse editor ~actually_transform ~exported_log_modules =
   end
 ;;
 
+let has_alert_attribute expression =
+  List.exists expression.pexp_attributes ~f:(function
+    | { attr_name = { txt = "alert"; loc = _ }
+      ; attr_payload = PStr [%str "-use_ppx_log"]
+      ; attr_loc = _
+      } -> true
+    | _ -> false)
+;;
+
+let add_alert_to_ml_file editor ~actually_transform ~initial_bindings =
+  object
+    inherit
+      [_] Refactor_syntax.iter_with_bindings editor ~initial_bindings ~interpret_as:Name as super
+
+    (* There have been some false-positive matches where an alert was added to something
+       in an extension or attribute. Hence the disabling of the iteration down some of
+       these AST nodes. *)
+
+    method! extension (label, payload) =
+      match label.txt with
+      | "map" | "bind" -> super#extension (label, payload)
+      | "sexp" | "sexp_of" | "message" -> ()
+      | s ->
+        if String.is_prefix s ~prefix:"test" then () else super#extension (label, payload)
+
+    method! attribute (_ : attribute) = ()
+    method! type_declaration (_ : type_declaration) = ()
+    method! expression e = if not (has_alert_attribute e) then super#expression e
+
+    method! binding { loc; txt = _ } namespace instance =
+      match namespace, instance with
+      | ( Value
+        , Ok ((_ : Level.t option), (_ : Callsite_kind.t), (_ : [> `Global | `Instance ]))
+        ) ->
+        print_endline
+          [%string
+            {|Found binding: %{loc.loc_start.pos_fname}:%{loc.loc_start.pos_lnum#Int}|}];
+        if actually_transform
+        then (
+          let contents = Refactor_editor.contents_at_exn editor ~loc in
+          Refactor_editor.replace_code_keeping_comments_exn
+            editor
+            ~prefix:[%string {|((%{contents})|}]
+            ~suffix:{|[@alert "-use_ppx_log"])|}
+            ~loc)
+      | _, (Error `Shadowed__not_actually_async_log | Ok _) -> ()
+  end
+;;
+
 let%test_module "" =
   (module struct
+    let test_alert file_contents =
+      let initial_bindings = bindings ~exported_log_modules:[] in
+      Or_error.try_with (fun () ->
+        Refactor_syntax.transform_exn
+          (add_alert_to_ml_file ~actually_transform:true ~initial_bindings)
+          ~filename:(File_path.of_string "file.ml")
+          ~file_contents)
+    ;;
+
+    let%expect_test "test" =
+      let result =
+        test_alert
+          {|
+          open! Async
+          let l = Log.Global.printf
+          let () = Log.Global.info_s [%message error_str]
+          let () = (Log.Global.info_s [@alert "-use_ppx_log"]) [%message error_str]
+          let () = Async.Log.Global.(print_s [%sexp (a : string)])
+          let () =
+            match%map Deferred.unit with
+            | () -> Error.sexp_of_t e |> Log.Global.error_s ~tags:[ "line", line ]
+          ;;
+
+          let () =
+            let%map () = Deferrred.unit in
+            Log.Global.info_s [%message error_str]
+          ;;
+
+          open! Log.Global
+          type t = { t : string } [@@deriving sexp]
+
+          let () = [%test_eq: string] ("a" : string) "b"
+
+          module Log = struct
+            let () = Log.Global.info_s [%message error_str]
+          end
+
+   |}
+        |> ok_exn
+        |> String.substr_replace_all ~pattern:"\n  " ~with_:"\n"
+      in
+      [%expect
+        {|
+        Found binding: file.ml:3
+        Found binding: file.ml:4
+        Found binding: file.ml:9
+        Found binding: file.ml:14
+        Found binding: file.ml:23 |}];
+      print_endline result;
+      [%expect
+        {|
+    open! Async
+    let l = ((Log.Global.printf)[@alert "-use_ppx_log"])
+    let () = ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
+    let () = (Log.Global.info_s [@alert "-use_ppx_log"]) [%message error_str]
+    let () = Async.Log.Global.(print_s [%sexp (a : string)])
+    let () =
+      match%map Deferred.unit with
+      | () -> Error.sexp_of_t e |> ((Log.Global.error_s)[@alert "-use_ppx_log"]) ~tags:[ "line", line ]
+    ;;
+
+    let () =
+      let%map () = Deferrred.unit in
+      ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
+    ;;
+
+    open! Log.Global
+    type t = { t : string } [@@deriving sexp]
+
+    let () = [%test_eq: string] ("a" : string) "b"
+
+    module Log = struct
+      let () = ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
+    end |}]
+    ;;
+
     let test import_log file_contents =
-      let exported_log_modules =
+      let initial_bindings =
         match import_log with
-        | None -> []
-        | Some import_log -> [ `Module_name "Import", import_log ]
+        | None -> bindings ~exported_log_modules:[]
+        | Some import_log ->
+          bindings ~exported_log_modules:[ `Module_name "Import", import_log ]
       in
       Or_error.try_with (fun () ->
         Refactor_syntax.transform_exn
-          (parse ~actually_transform:true ~exported_log_modules)
+          (convert_callsites_to_ppx_log ~actually_transform:true ~initial_bindings)
           ~filename:(File_path.of_string "file.ml")
           ~file_contents)
     ;;
@@ -1047,9 +1179,9 @@ module Cache = struct
   ;;
 end
 
-let command =
+let make_smash_command f ~summary =
   let find_files_based_on =
-    Refactor_bash.Rg.create ~matching:(Regex {|(log|Log|L)\.|}) ()
+    Refactor_bash.Rg.create ~matching:(Regex {|(log|Log|L|Log_extended)\.|}) ()
   in
   let instance_impl
     { actually_transform; cache_dir; mode = `Strict }
@@ -1065,15 +1197,55 @@ let command =
       let%map exported_log_modules =
         Filesystem_cache.fetch cache (File_path.dirname_exn filename)
       in
-      Refactor_editor.transform_exn
-        editor
-        ~f:(parse ~actually_transform ~exported_log_modules))
+      let initial_bindings = bindings ~exported_log_modules in
+      Refactor_editor.transform_exn editor ~f:(fun e ->
+        f e ~actually_transform ~initial_bindings))
     else return ()
   in
   Refactor_parallel.single_command
     ~find_files_based_on
     ~instance_impl
     ~shared_param:param
-    ~summary:"Replaces Log[.Global] logging functions with ppx_log equivalents"
+    ~summary
     ()
+;;
+
+let convert_callsites_to_ppx_log_command =
+  make_smash_command
+    convert_callsites_to_ppx_log
+    ~summary:"Replaces Log[.Global] logging functions with ppx_log equivalents"
+;;
+
+let add_alert_to_ml_file_command =
+  make_smash_command
+    add_alert_to_ml_file
+    ~summary:"Add alerts to direct async log functions"
+;;
+
+let add_alert_to_jbuild_command =
+  Command.async
+    ~summary:"add a alert disabling clause to a jbuild"
+    (let%map_open.Command file = anon ("FILE" %: string) in
+     fun () ->
+       let%bind file_contents = Reader.file_contents file in
+       let contents =
+         Refactor_jbuild.add_flags
+           ~file_contents
+           ~missing_flags:[ "-alert"; "-use_ppx_log" ]
+           ()
+       in
+       Writer.save file ~contents)
+;;
+
+let command =
+  Command.group
+    ~summary:"tools for smashing the tree related to async log"
+    [ "smash", convert_callsites_to_ppx_log_command
+    ; ( "alerts"
+      , Command.group
+          ~summary:"tools for adding alerts for async log"
+          [ "add-to-jbuild", add_alert_to_jbuild_command
+          ; "add-to-ml", add_alert_to_ml_file_command
+          ] )
+    ]
 ;;
