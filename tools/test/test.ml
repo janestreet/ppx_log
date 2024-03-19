@@ -76,7 +76,8 @@ let%expect_test "compare input and output log statement behaviour" =
       1969-12-31 19:00:00.000000-05:00 hello world31
       1969-12-31 19:00:00.000000-05:00 hello world32 5
       1969-12-31 19:00:00.000000-05:00 "direct hello"
-      1969-12-31 19:00:00.000000-05:00 Info direct hello 2 |}];
+      1969-12-31 19:00:00.000000-05:00 Info direct hello 2
+    |}];
   let%bind () = compare ~format:`Sexp in
   [%expect
     {|
@@ -134,6 +135,7 @@ let%expect_test "compare input and output log statement behaviour" =
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level())(message(String"hello world31"))(tags())))
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level())(message(String"hello world32 5"))(tags())))
       (V2((time(1969-12-31 19:00:00.000000-05:00))(level())(message(Sexp"direct hello"))(tags())))
-      (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(String"direct hello 2"))(tags()))) |}];
+      (V2((time(1969-12-31 19:00:00.000000-05:00))(level(Info))(message(String"direct hello 2"))(tags())))
+    |}];
   Deferred.unit
 ;;

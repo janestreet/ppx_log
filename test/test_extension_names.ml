@@ -37,5 +37,6 @@ let%expect_test "Extension names" =
     @log.info_sexp
     @log.info_string
     @log.sexp
-    @log.string |}]
+    @log.string
+    |}]
 ;;

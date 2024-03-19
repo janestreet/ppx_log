@@ -55,29 +55,34 @@ let%expect_test "process_ml_file_exn" =
   [%expect
     {|
     ((Async.Log "-> async log") (Async.Log.Global "-> global log")
-     (Log "is not defined")) |}];
+     (Log "is not defined"))
+    |}];
   test bindings {| module Log = Concord_log |};
   [%expect {| ((Async.Log "-> async log") (Async.Log.Global "-> global log")) |}];
   test bindings {| module Log = struct include Async.Log end |};
   [%expect
     {|
     ((Async.Log "-> async log") (Async.Log.Global "-> global log")
-     (Log "-> async log") (Log.Global "-> global log")) |}];
+     (Log "-> async log") (Log.Global "-> global log"))
+    |}];
   test bindings {| module Log = Async.Log |};
   [%expect
     {|
     ((Async.Log "-> async log") (Async.Log.Global "-> global log")
-     (Log "-> async log") (Log.Global "-> global log")) |}];
+     (Log "-> async log") (Log.Global "-> global log"))
+    |}];
   test bindings {| open Async module Log = Log.Global |};
   [%expect
     {|
     ((Async.Log "-> async log") (Async.Log.Global "-> global log")
-     (Log "-> global log")) |}];
+     (Log "-> global log"))
+    |}];
   test bindings {| module Log = Async.Log.Global |};
   [%expect
     {|
     ((Async.Log "-> async log") (Async.Log.Global "-> global log")
-     (Log "-> global log")) |}];
+     (Log "-> global log"))
+    |}];
   (* It's not quite right that [open Async] causes [Import.Log] to point to async log, but
      [Bindings] currently doesn't make a distinction between what's exported vs. what's in
      scope. So this is good enough I think. *)
@@ -85,10 +90,12 @@ let%expect_test "process_ml_file_exn" =
   [%expect
     {|
     ((Async.Log "-> async log") (Async.Log.Global "-> global log")
-     (Log "-> async log") (Log.Global "-> global log")) |}];
+     (Log "-> async log") (Log.Global "-> global log"))
+    |}];
   test bindings {| module Log = Async.Log.Global |};
   [%expect
     {|
     ((Async.Log "-> async log") (Async.Log.Global "-> global log")
-     (Log "-> global log")) |}]
+     (Log "-> global log"))
+    |}]
 ;;

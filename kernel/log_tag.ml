@@ -55,12 +55,14 @@ let%expect_test "parsing / rendering examples" =
   [%expect
     {|
     ((x (Constant (Pconst_integer 123 ()))))
-    [{ Ppx_log_types.Log_tag.name = "x"; data = (Int 123) }] |}];
+    [{ Ppx_log_types.Log_tag.name = "x"; data = (Int 123) }]
+    |}];
   test [%expr "unused" ~x:(some ~expr)];
   [%expect
     {|
     ((x (String_expression "some ~expr")))
-    [{ Ppx_log_types.Log_tag.name = "x"; data = (String (some ~expr)) }] |}];
+    [{ Ppx_log_types.Log_tag.name = "x"; data = (String (some ~expr)) }]
+    |}];
   test [%expr "unused" ~x:(some ~expr : t)];
   [%expect
     {|
@@ -68,12 +70,14 @@ let%expect_test "parsing / rendering examples" =
     [{
        Ppx_log_types.Log_tag.name = "x";
        data = (Sexp (((sexp_of_t)[@merlin.hide ]) (some ~expr)))
-     }] |}];
+     }]
+    |}];
   test [%expr "unused" ~x];
   [%expect
     {|
     ((x (String_expression x)))
-    [{ Ppx_log_types.Log_tag.name = "x"; data = (String x) }] |}];
+    [{ Ppx_log_types.Log_tag.name = "x"; data = (String x) }]
+    |}];
   test [%expr "unused" (some ~expr : t)];
   [%expect
     {|
@@ -81,17 +85,20 @@ let%expect_test "parsing / rendering examples" =
     [{
        Ppx_log_types.Log_tag.name = "some ~expr";
        data = (Sexp (((sexp_of_t)[@merlin.hide ]) (some ~expr)))
-     }] |}];
+     }]
+    |}];
   test [%expr "unused" (some ~expr)];
   [%expect
     {|
     (("" (String_expression "some ~expr")))
-    [{ Ppx_log_types.Log_tag.name = ""; data = (String (some ~expr)) }] |}];
+    [{ Ppx_log_types.Log_tag.name = ""; data = (String (some ~expr)) }]
+    |}];
   test [%expr "unused" ~_:(some ~expr)];
   [%expect
     {|
     (("" (String_expression "some ~expr")))
-    [{ Ppx_log_types.Log_tag.name = ""; data = (String (some ~expr)) }] |}];
+    [{ Ppx_log_types.Log_tag.name = ""; data = (String (some ~expr)) }]
+    |}];
   test [%expr "unused" ~_:(some ~expr : t)];
   [%expect
     {|
@@ -99,7 +106,8 @@ let%expect_test "parsing / rendering examples" =
     [{
        Ppx_log_types.Log_tag.name = "";
        data = (Sexp (((sexp_of_t)[@merlin.hide ]) (some ~expr)))
-     }] |}];
+     }]
+    |}];
   test
     [%expr
       "unused" ~x ~y (z : (int option[@sexp.option])) (t : (t[@sexp.omit_nil])) ~a ~b];
@@ -128,5 +136,6 @@ let%expect_test "parsing / rendering examples" =
                   tl))
      with
      | (None, tl) -> tl
-     | (Some data, tl) -> { Ppx_log_types.Log_tag.name = "z"; data } :: tl) |}]
+     | (Some data, tl) -> { Ppx_log_types.Log_tag.name = "z"; data } :: tl)
+    |}]
 ;;

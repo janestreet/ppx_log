@@ -1,0 +1,143 @@
+# ppx_log walkthrough and examples
+
+# Basic usage
+Open `Async`, then call `[%log.global]`.
+
+```ocaml
+# open Core
+# open Async
+# Log.Global.For_testing.use_test_output (); (* Sanitizes output / avoids the need to flush *)
+  [%log.global "hello"];
+hello
+- : unit = ()
+```
+
+## Additional syntax
+
+You can specify a log level for the message, as well as specific `Log.t`s.
+
+```ocaml
+# [%log.global.info "hello"];
+hello
+- : unit = ()
+# let log = Log.For_testing.create ~map_output:Fn.id `Info in
+  [%log log "my"];
+  [%log.info log "world"];
+my
+world
+- : unit = ()
+# [%log.global.debug "should not log because debug"];
+- : unit = ()
+```
+
+The contents of a log statement roughly follows what
+[ppx_sexp_message](../../ppx_sexp_message/README.md) accepts. So for example,
+
+```ocaml
+# let year = 2014;
+val year : int = 2014
+# let suffix = "CE";
+val suffix : string = "CE"
+# [%log.global "message" (year : int) ~suffix];
+(message(year 2014)(suffix CE))
+- : unit = ()
+```
+
+# Legacy options
+
+## Formatting
+In general, you should use the syntax above as it preserves the most structural
+information about a message to downstream `Async.Log` outputs.
+
+However, for compatibility with previous APIs of async log, there's additional syntax for
+printing sexps directly, printing formatted strings, as well as printing with extra
+parentheses.
+
+```ocaml
+# let s = [%sexp (1234 : int)] in [%log.global.sexp s]
+1234
+- : unit = ()
+# [%log.global.info_format "hello %s" "world"] 
+hello world
+- : unit = ()
+# let i = 3 in [%log.global.info_string "hello %{i#Int}"] 
+hello 3
+- : unit = ()
+# [%log.global "hello" (3 : int)]
+(hello(3 3))
+- : unit = ()
+# [%log.global "hello" (3 : int) [@@legacy_tag_parentheses]] 
+(hello((3 3)))
+- : unit = ()
+```
+
+## Message metadata
+There are also attributes for specifying a dynamic level, time, or tag set.
+
+```ocaml
+# let verbose_log = Log.create () ~output:[ Log.Output.stderr () ] ~level:`Info ~on_error:`Raise in
+  (* We need to define a new log, because the global log doesn't by default output tags or time *)
+  [%log verbose_log "hello" [@@time (Some Time_float.epoch)] [@@level Some `Error]];
+  [%log verbose_log "hello" [@@time (Some Time_float.epoch)] [@@tags ["name", "value"]]];
+  Thread_safe.block_on_async_exn (fun () -> Log.flushed verbose_log);
+1969-12-31 19:00:00.000000-05:00 Error hello
+1969-12-31 19:00:00.000000-05:00 hello -- [name: value]
+- : unit = ()
+```
+
+# Ppx_log_syntax
+
+`[%log]` doesn't generate function calls to `Async_log` directly, but instead to
+`Ppx_log_syntax`, which `Async` then shadows to point to `Async_log` functions. This means
+that you can also customize the behaviour of ppx_log by defining your own `Ppx_log_syntax`
+to be in scope.
+
+## Example: disabling global log usage
+
+`Async.Ppx_log_syntax.No_global` also defines `Ppx_log_syntax`, except the global
+functions are set to return specific error types and not actually log. This lets you guard
+against accidental uses of global logging in your code.
+
+```ocaml
+# open Async.Ppx_log_syntax.No_global;;
+# let `Do_not_use_because_it_will_not_log = [%log.global.error "this should not log"];
+```
+
+# Advanced usage
+## Structural preservation
+ppx_log's normal usage tries to preserve certain structural information about its message
+payload. For instance, 
+
+```ocaml
+[%log.global "message" (year : int) ~suffix];
+```
+turns into a message string, a year int tag, and a suffix string tag. Async log outputs can be defined to make use of this structured output.
+
+## JSON tags
+You can mark a field in a message payload with `[@j]` so that the tag information is saved
+as a JSON intead of as a sexp. This is useful if you have JSON already, and also as a
+makeshift way to preserve more structural information in your tag type than a sexp
+provides. This requires `jsonaf_of` to be derived on the type.
+
+```ocaml
+open Async
+open Jsonaf_kernel.Conv
+
+type t = { users : string list } [@@deriving jsonaf_of]
+let my_t = { users = [ "me"; "you" ] }
+;;
+```
+
+```ocaml
+# [%log.global (my_t : (t[@j]))]
+(my_t(Object((users(Array((String me)(String you)))))))
+- : unit = ()
+```
+
+## Source code position output
+`ppx_log` can add source code position to each logged message,
+configurable at a library level by the `-log-source-position` switch.
+
+```sexp
+(preprocess (pps (ppx_jane ... -log-source-position)))
+```

@@ -15,7 +15,8 @@ let%expect_test "logs source position from opted-in library" =
       (message (Sexp "expect position in tags"))
       (tags
        ((pos
-         ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:12:12))))) |}];
+         ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:12:12)))))
+    |}];
   return ()
 ;;
 
@@ -27,7 +28,8 @@ let%expect_test "logs no source position from current library" =
     {|
     (V2
      ((time (1969-12-31 19:00:00.000000-05:00)) (level (Info))
-      (message (Sexp "expect NO position in tags")) (tags ()))) |}];
+      (message (Sexp "expect NO position in tags")) (tags ())))
+    |}];
   return ()
 ;;
 
@@ -42,7 +44,8 @@ let%expect_test "globally logs source position from opted-in library" =
       (message (Sexp "expect position in tags"))
       (tags
        ((pos
-         ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:6:12))))) |}];
+         ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:6:12)))))
+    |}];
   return ()
 ;;
 
@@ -60,7 +63,8 @@ let%expect_test "globally logs source position and other tags from opted-in libr
       (tags
        ((pos
          ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:7:17)
-        (another_tag hi))))) |}];
+        (another_tag hi)))))
+    |}];
   let log = Lazy.force Log.Global.log in
   Ppx_log_lib_with_source_pos.log_info
     log
@@ -75,7 +79,8 @@ let%expect_test "globally logs source position and other tags from opted-in libr
       (tags
        ((pos
          ppx/ppx_log/test/lib_with_source_pos/ppx_log_lib_with_source_pos.ml:13:17)
-        (another_tag hi))))) |}];
+        (another_tag hi)))))
+    |}];
   return ()
 ;;
 
@@ -87,7 +92,8 @@ let%expect_test "globally logs no source position from current library" =
     {|
     (V2
      ((time (1969-12-31 19:00:00.000000-05:00)) (level (Info))
-      (message (Sexp "expect NO position in tags")) (tags ()))) |}];
+      (message (Sexp "expect NO position in tags")) (tags ())))
+    |}];
   return ()
 ;;
 
@@ -99,7 +105,8 @@ let%expect_test "globally logs no source position and other tags from current li
     {|
     (V2
      ((time (1969-12-31 19:00:00.000000-05:00)) (level (Info))
-      (message (Sexp "expect NO position in tags")) (tags (("another tag" hi))))) |}];
+      (message (Sexp "expect NO position in tags")) (tags (("another tag" hi)))))
+    |}];
   let log = Lazy.force Log.Global.log in
   [%log.info log "expect NO position in tags" [@@tags [ "another tag", "hi" ]]];
   let%bind () = Log.flushed log in
@@ -107,6 +114,7 @@ let%expect_test "globally logs no source position and other tags from current li
     {|
     (V2
      ((time (1969-12-31 19:00:00.000000-05:00)) (level (Info))
-      (message (Sexp "expect NO position in tags")) (tags (("another tag" hi))))) |}];
+      (message (Sexp "expect NO position in tags")) (tags (("another tag" hi)))))
+    |}];
   return ()
 ;;

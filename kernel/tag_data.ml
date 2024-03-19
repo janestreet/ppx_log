@@ -43,7 +43,7 @@ let sexp_of_constraint ~loc expr ctyp =
 ;;
 
 let log_json_attribute =
-  Attribute.declare "@j" Attribute.Context.core_type Ast_pattern.(pstr nil) Fn.id
+  Attribute.declare "@j" Attribute.Context.core_type Ast_pattern.(pstr nil) ()
 ;;
 
 (* [omit_nil_expr] and [sexp_option_expr] are roughly copied from
@@ -69,12 +69,12 @@ let sexp_option_expr expr ~type_without_option:typ ~loc =
 
 let type_labelled_constraint ~loc expr ctyp =
   let default () =
-    if Option.is_some (Attribute.get log_json_attribute ctyp)
-    then `Tag, [%expr Json [%e expr]]
-    else (
-      match Attribute.get omit_nil_attr ctyp with
-      | Some () -> omit_nil_expr expr ctyp ~loc
-      | None -> `Tag, [%expr Sexp [%e sexp_of_constraint ~loc expr ctyp]])
+    match Attribute.consume log_json_attribute ctyp with
+    | Some (ctyp, ()) -> `Tag, [%expr Json ([%jsonaf_of: [%t ctyp]] [%e expr])]
+    | None ->
+      (match Attribute.get omit_nil_attr ctyp with
+       | Some () -> omit_nil_expr expr ctyp ~loc
+       | None -> `Tag, [%expr Sexp [%e sexp_of_constraint ~loc expr ctyp]])
   in
   match ctyp with
   | [%type: int] -> `Tag, [%expr Int [%e expr]]

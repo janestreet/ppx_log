@@ -137,7 +137,8 @@ module Callsite_level = struct
       ((Variable _) String log.string)
       ((Variable _) String log.global.string)
       (Unspecified String log.string)
-      (Unspecified String log.global.string) |}]
+      (Unspecified String log.global.string)
+      |}]
   ;;
 
   type nonrec t = Labelled_arg.t t
@@ -180,7 +181,8 @@ module Callsite_kind = struct
       (error ((Error) Printf))
       (sexp (() Sexp))
       (printf (() Printf))
-      (string (() String)) |}]
+      (string (() String))
+      |}]
   ;;
 end
 
@@ -826,33 +828,35 @@ let%test_module "" =
         Found binding: file.ml:4
         Found binding: file.ml:9
         Found binding: file.ml:14
-        Found binding: file.ml:23 |}];
+        Found binding: file.ml:23
+        |}];
       print_endline result;
       [%expect
         {|
-    open! Async
-    let l = ((Log.Global.printf)[@alert "-use_ppx_log"])
-    let () = ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
-    let () = (Log.Global.info_s [@alert "-use_ppx_log"]) [%message error_str]
-    let () = Async.Log.Global.(print_s [%sexp (a : string)])
-    let () =
-      match%map Deferred.unit with
-      | () -> Error.sexp_of_t e |> ((Log.Global.error_s)[@alert "-use_ppx_log"]) ~tags:[ "line", line ]
-    ;;
+        open! Async
+        let l = ((Log.Global.printf)[@alert "-use_ppx_log"])
+        let () = ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
+        let () = (Log.Global.info_s [@alert "-use_ppx_log"]) [%message error_str]
+        let () = Async.Log.Global.(print_s [%sexp (a : string)])
+        let () =
+          match%map Deferred.unit with
+          | () -> Error.sexp_of_t e |> ((Log.Global.error_s)[@alert "-use_ppx_log"]) ~tags:[ "line", line ]
+        ;;
 
-    let () =
-      let%map () = Deferrred.unit in
-      ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
-    ;;
+        let () =
+          let%map () = Deferrred.unit in
+          ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
+        ;;
 
-    open! Log.Global
-    type t = { t : string } [@@deriving sexp]
+        open! Log.Global
+        type t = { t : string } [@@deriving sexp]
 
-    let () = [%test_eq: string] ("a" : string) "b"
+        let () = [%test_eq: string] ("a" : string) "b"
 
-    module Log = struct
-      let () = ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
-    end |}]
+        module Log = struct
+          let () = ((Log.Global.info_s)[@alert "-use_ppx_log"]) [%message error_str]
+        end
+        |}]
     ;;
 
     let test import_log file_contents =
@@ -890,53 +894,54 @@ let%test_module "" =
             | Error (_ : Error.t) -> printf "- error:    ![%s]\n" contents)));
       [%expect
         {|
-   If [Import.Log] is () then
-   - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
-   - unchanged: [open Import let () = Log.info_s log [%message ""]]
-   - unchanged: [open Import let () = Log.info_s [%message ""]]
-   - changed:  -[open Async open Import let () = Log.Global.info_s [%message ""]]
-     into:     +[open Async open Import let () = (([%log.global.info ""]))]
+        If [Import.Log] is () then
+        - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
+        - unchanged: [open Import let () = Log.info_s log [%message ""]]
+        - unchanged: [open Import let () = Log.info_s [%message ""]]
+        - changed:  -[open Async open Import let () = Log.Global.info_s [%message ""]]
+          into:     +[open Async open Import let () = (([%log.global.info ""]))]
 
-   - changed:  -[open Async open Import let () = Log.info_s log [%message ""]]
-     into:     +[open Async open Import let () = (([%log.info log ]))]
+        - changed:  -[open Async open Import let () = Log.info_s log [%message ""]]
+          into:     +[open Async open Import let () = (([%log.info log ]))]
 
-   - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
+        - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
 
-   If [Import.Log] is (Global_log) then
-   - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
-   - error:    ![open Import let () = Log.info_s log [%message ""]]
-   - changed:  -[open Import let () = Log.info_s [%message ""]]
-     into:     +[open Import let () = (([%log.global.info ""]))]
+        If [Import.Log] is (Global_log) then
+        - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
+        - error:    ![open Import let () = Log.info_s log [%message ""]]
+        - changed:  -[open Import let () = Log.info_s [%message ""]]
+          into:     +[open Import let () = (([%log.global.info ""]))]
 
-   - unchanged: [open Async open Import let () = Log.Global.info_s [%message ""]]
-   - error:    ![open Async open Import let () = Log.info_s log [%message ""]]
-   - changed:  -[open Async open Import let () = Log.info_s [%message ""]]
-     into:     +[open Async open Import let () = (([%log.global.info ""]))]
+        - unchanged: [open Async open Import let () = Log.Global.info_s [%message ""]]
+        - error:    ![open Async open Import let () = Log.info_s log [%message ""]]
+        - changed:  -[open Async open Import let () = Log.info_s [%message ""]]
+          into:     +[open Async open Import let () = (([%log.global.info ""]))]
 
 
-   If [Import.Log] is (Async_log) then
-   - changed:  -[open Import let () = Log.Global.info_s [%message ""]]
-     into:     +[open Import let () = (([%log.global.info ""]))]
+        If [Import.Log] is (Async_log) then
+        - changed:  -[open Import let () = Log.Global.info_s [%message ""]]
+          into:     +[open Import let () = (([%log.global.info ""]))]
 
-   - changed:  -[open Import let () = Log.info_s log [%message ""]]
-     into:     +[open Import let () = (([%log.info log ]))]
+        - changed:  -[open Import let () = Log.info_s log [%message ""]]
+          into:     +[open Import let () = (([%log.info log ]))]
 
-   - unchanged: [open Import let () = Log.info_s [%message ""]]
-   - changed:  -[open Async open Import let () = Log.Global.info_s [%message ""]]
-     into:     +[open Async open Import let () = (([%log.global.info ""]))]
+        - unchanged: [open Import let () = Log.info_s [%message ""]]
+        - changed:  -[open Async open Import let () = Log.Global.info_s [%message ""]]
+          into:     +[open Async open Import let () = (([%log.global.info ""]))]
 
-   - changed:  -[open Async open Import let () = Log.info_s log [%message ""]]
-     into:     +[open Async open Import let () = (([%log.info log ]))]
+        - changed:  -[open Async open Import let () = Log.info_s log [%message ""]]
+          into:     +[open Async open Import let () = (([%log.info log ]))]
 
-   - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
+        - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
 
-   If [Import.Log] is (Neither_async_nor_global_log) then
-   - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
-   - unchanged: [open Import let () = Log.info_s log [%message ""]]
-   - unchanged: [open Import let () = Log.info_s [%message ""]]
-   - unchanged: [open Async open Import let () = Log.Global.info_s [%message ""]]
-   - unchanged: [open Async open Import let () = Log.info_s log [%message ""]]
-   - unchanged: [open Async open Import let () = Log.info_s [%message ""]] |}]
+        If [Import.Log] is (Neither_async_nor_global_log) then
+        - unchanged: [open Import let () = Log.Global.info_s [%message ""]]
+        - unchanged: [open Import let () = Log.info_s log [%message ""]]
+        - unchanged: [open Import let () = Log.info_s [%message ""]]
+        - unchanged: [open Async open Import let () = Log.Global.info_s [%message ""]]
+        - unchanged: [open Async open Import let () = Log.info_s log [%message ""]]
+        - unchanged: [open Async open Import let () = Log.info_s [%message ""]]
+        |}]
     ;;
 
     let%expect_test "test" =
@@ -1003,67 +1008,69 @@ let%test_module "" =
       in
       [%expect
         {|
-   ("Callsite was passed as argument to other function"
-    ((loc file.ml:43) (expr Log.Global.info_s))) |}];
+        ("Callsite was passed as argument to other function"
+         ((loc file.ml:43) (expr Log.Global.info_s)))
+        |}];
       print_endline result;
       [%expect
         {|
-    open Core
-    open Async
+         open Core
+         open Async
 
-    let () =
-    (([%log.global.info error_str]));
-    (([%log.global.info (hostname : Hostname.t) (e : Error.t)]));
-    (([%log.global.info "message" ~_:(List.hd_exn errors : Error.t)]));
-    (([%log.global.info "message" (i : ((int option)[@sexp.option ]))]));
-    (([%log.global.info "message" (i : ((int option)[@sexp.omit_nil ]))]));
+         let () =
+         (([%log.global.info error_str]));
+         (([%log.global.info (hostname : Hostname.t) (e : Error.t)]));
+         (([%log.global.info "message" ~_:(List.hd_exn errors : Error.t)]));
+         (([%log.global.info "message" (i : ((int option)[@sexp.option ]))]));
+         (([%log.global.info "message" (i : ((int option)[@sexp.omit_nil ]))]));
 
-    (([%log.global.info_sexp (e : Error.t)]));
-    (([%log.global.info_sexp error_sexp]));
-    (([%log.global.info "message" ~_:(host : Hostname.t) (error : Error.t)]));
-    ((* Test comment *)([%log.global.info my_message ~_:(host : Hostname.t)]));
-    (([%log.global.info my_message (host : Hostname.t)[@@legacy_tag_parentheses ]]));
-    (([%log.global.info
-   ([%string "hello %d" 1]) (host : Hostname.t)[@@legacy_tag_parentheses ]]));
+         (([%log.global.info_sexp (e : Error.t)]));
+         (([%log.global.info_sexp error_sexp]));
+         (([%log.global.info "message" ~_:(host : Hostname.t) (error : Error.t)]));
+         ((* Test comment *)([%log.global.info my_message ~_:(host : Hostname.t)]));
+         (([%log.global.info my_message (host : Hostname.t)[@@legacy_tag_parentheses ]]));
+         (([%log.global.info
+        ([%string "hello %d" 1]) (host : Hostname.t)[@@legacy_tag_parentheses ]]));
 
-    (([%log.global.debug "hello"[@@tags my_tags][@@time Some time]]));
-    (* Places where [level] and [time] are variable are few / generally only log wrappers. *)
-    (([%log.global "hello"[@@tags my_tags][@@time time][@@level Some my_level]]));
-    (([%log.global "hello"[@@tags Option.value my_tags ~default:[]]]));
+         (([%log.global.debug "hello"[@@tags my_tags][@@time Some time]]));
+         (* Places where [level] and [time] are variable are few / generally only log wrappers. *)
+         (([%log.global "hello"[@@tags my_tags][@@time time][@@level Some my_level]]));
+         (([%log.global "hello"[@@tags Option.value my_tags ~default:[]]]));
 
-    (([%log.global.string "hello world"]));
-    (([%log.global.format "hello world %s" i]));
-    ((fun log_arg log_arg_2 ->
-   [%log.global.format "hello world %s %% %s" log_arg log_arg_2]));
+         (([%log.global.string "hello world"]));
+         (([%log.global.format "hello world %s" i]));
+         ((fun log_arg log_arg_2 ->
+        [%log.global.format "hello world %s %% %s" log_arg log_arg_2]));
 
-    (([%log.info (my log) error_str]));
-    (([%log.info (my log) (hostname : Hostname.t) (e : Error.t)]));
-    (([%log.info (my log) "message" ~_:(List.hd_exn errors : Error.t)]));
-    (([%log.info (my log) "message" (i : ((int option)[@sexp.option ]))]));
-    (([%log.info (my log) "message" (i : ((int option)[@sexp.omit_nil ]))]));
+         (([%log.info (my log) error_str]));
+         (([%log.info (my log) (hostname : Hostname.t) (e : Error.t)]));
+         (([%log.info (my log) "message" ~_:(List.hd_exn errors : Error.t)]));
+         (([%log.info (my log) "message" (i : ((int option)[@sexp.option ]))]));
+         (([%log.info (my log) "message" (i : ((int option)[@sexp.omit_nil ]))]));
 
-    (([%log.info_sexp (my log) (e : Error.t)]));
-    (([%log.info_sexp (my log) error_sexp]));
-    (([%log.info (my log) "message" ~_:(host : Hostname.t) (error : Error.t)]));
-    (([%log.info (my log) my_message ~_:(host : Hostname.t)]));
-    (([%log.info
-   (my log) my_message (host : Hostname.t)[@@legacy_tag_parentheses ]]));
-    (([%log.info (my log) ~_:(a b : int) ~_:(b : int)]));
-    (([%log.info (my log) (a : int) (b : int)[@@legacy_tag_parentheses ]]));
-    (([%log.info (my log) ~a:123[@@legacy_tag_parentheses ]]));
+         (([%log.info_sexp (my log) (e : Error.t)]));
+         (([%log.info_sexp (my log) error_sexp]));
+         (([%log.info (my log) "message" ~_:(host : Hostname.t) (error : Error.t)]));
+         (([%log.info (my log) my_message ~_:(host : Hostname.t)]));
+         (([%log.info
+        (my log) my_message (host : Hostname.t)[@@legacy_tag_parentheses ]]));
+         (([%log.info (my log) ~_:(a b : int) ~_:(b : int)]));
+         (([%log.info (my log) (a : int) (b : int)[@@legacy_tag_parentheses ]]));
+         (([%log.info (my log) ~a:123[@@legacy_tag_parentheses ]]));
 
-    do_thing ~log:(Log.Global.info_s);
-    do_thing ~log:(Log.info_s (my log));
-    do_thing ~log:(Log.info_s ~time:Time_ns.epoch);
+         do_thing ~log:(Log.Global.info_s);
+         do_thing ~log:(Log.info_s (my log));
+         do_thing ~log:(Log.info_s ~time:Time_ns.epoch);
 
-    (([%log.debug (my log) "hello"[@@time Some time]]));
-    (([%log (my log) "hello"[@@time time][@@level Some my_level]]));
-    (([%log.string (my log) "hello world"]));
-    (([%log.format (my log) "hello world %s" i]))
+         (([%log.debug (my log) "hello"[@@time Some time]]));
+         (([%log (my log) "hello"[@@time time][@@level Some my_level]]));
+         (([%log.string (my log) "hello world"]));
+         (([%log.format (my log) "hello world %s" i]))
 
-    module Log = Log.Global
-    let () = (([%log.global "hello"]))
-    ;; |}]
+         module Log = Log.Global
+         let () = (([%log.global "hello"]))
+         ;;
+        |}]
     ;;
   end)
 ;;
