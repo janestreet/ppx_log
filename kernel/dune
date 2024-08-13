@@ -4,7 +4,7 @@
  (kind ppx_rewriter)
  (ppx_runtime_libraries ppx_sexp_conv.runtime-lib ppx_log.types
    ppx_log.syntax)
- (libraries ppxlib ppx_here.expander ppx_sexp_conv.expander
+ (libraries ppxlib base ppx_here.expander ppx_sexp_conv.expander
    ppx_sexp_message.expander ppx_string stdio)
  (preprocess
   (pps ppx_compare ppx_enumerate ppx_expect ppx_fields_conv ppx_let

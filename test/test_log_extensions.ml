@@ -118,7 +118,8 @@ let%expect_test "logging non-string literals (expected extremely rare / unused, 
   [%log.global 5];
   [%log.global 3.14e-1];
   let%bind () = Log.Global.flushed () in
-  [%expect {|
+  [%expect
+    {|
     c
     "\000"
     5

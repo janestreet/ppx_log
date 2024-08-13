@@ -13,7 +13,7 @@ let extension_prefix (type data) = function
   | `Global -> "@log.global"
 ;;
 
-let would_log (type data) log ~level ~loc =
+let would_log log ~level ~loc =
   let level = Optional_arg.to_expr level ~loc in
   match log with
   | `Instance log -> [%expr Ppx_log_syntax.would_log [%e log] [%e level]]

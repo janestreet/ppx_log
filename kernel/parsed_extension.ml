@@ -26,12 +26,12 @@ let pattern () =
   let open Ast_pattern in
   pstr (as__ (pstr_eval __ drop) ^:: nil)
   |> map ~f:(fun f decl args ->
-       { args
-       ; tags_attr = Attribute.get tags_attr decl
-       ; level_attr = Attribute.get level_attr decl
-       ; time_attr = Attribute.get time_attr decl
-       ; legacy_add_extra_tag_parentheses =
-           Attribute.get legacy_add_extra_tag_parentheses_attr decl |> Option.is_some
-       }
-       |> f)
+    { args
+    ; tags_attr = Attribute.get tags_attr decl
+    ; level_attr = Attribute.get level_attr decl
+    ; time_attr = Attribute.get time_attr decl
+    ; legacy_add_extra_tag_parentheses =
+        Attribute.get legacy_add_extra_tag_parentheses_attr decl |> Option.is_some
+    }
+    |> f)
 ;;
