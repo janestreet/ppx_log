@@ -19,11 +19,13 @@ let option_attr = empty_attr "sexp.option"
 
 let parse e =
   let t =
-    match e with
-    | { pexp_desc = Pexp_constant constant; _ } -> Constant constant
-    | { pexp_desc = Pexp_constraint (expr, ctyp); _ } -> Type_constrained (expr, ctyp)
-    | [%expr [%here]] -> Here_extension
-    | e -> String_expression e
+    match Ppxlib_jane.Shim.Expression_desc.of_parsetree ~loc:e.pexp_loc e.pexp_desc with
+    | Pexp_constant constant -> Constant constant
+    | Pexp_constraint (expr, Some ctyp, _) -> Type_constrained (expr, ctyp)
+    | _ ->
+      (match e with
+       | [%expr [%here]] -> Here_extension
+       | e -> String_expression e)
   in
   { txt = t; loc = e.pexp_loc }
 ;;
