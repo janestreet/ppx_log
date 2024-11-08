@@ -14,12 +14,15 @@ let inferred_label = Pprintast.string_of_expression
 
 let parse_arg (label, e) =
   let loc = { e.pexp_loc with loc_ghost = true } in
+  let module Expression_desc = Ppxlib_jane.Shim.Expression_desc in
   let label =
-    match label, e.pexp_desc with
-    | Nolabel, Pexp_constraint (expr, (_ : core_type)) -> inferred_label expr
-    | Nolabel, (_ : expression_desc) | Labelled "_", (_ : expression_desc) -> ""
-    | Labelled label, (_ : expression_desc) -> label
-    | Optional (_ : label), (_ : expression_desc) ->
+    match label, Expression_desc.of_parsetree ~loc:e.pexp_loc e.pexp_desc with
+    | ( Nolabel
+      , Pexp_constraint (expr, (_ : core_type option), (_ : Ppxlib_jane.Shim.Modes.t)) )
+      -> inferred_label expr
+    | Nolabel, (_ : Expression_desc.t) | Labelled "_", (_ : Expression_desc.t) -> ""
+    | Labelled label, (_ : Expression_desc.t) -> label
+    | Optional (_ : label), (_ : Expression_desc.t) ->
       Location.raise_errorf ~loc "optional argument not allowed here"
   in
   { label; data = Tag_data.parse e }

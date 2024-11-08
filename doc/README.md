@@ -9,7 +9,8 @@ Async`, then you can write statements like:
 ```
 
 Some benefits of ppx_log:
-* Avoids computing the message if it wouldn't be logged 
+
+* Avoids computing the message if it wouldn't be logged
 * Preserves structure instead of flattening to a sexp for outputs that can make use of it
 
 You can also hook it up to your own logging libraries.

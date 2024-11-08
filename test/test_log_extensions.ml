@@ -138,17 +138,15 @@ let%expect_test "printf format string edge case" =
   Deferred.unit
 ;;
 
-let%test_module "json" =
-  (module struct
-    open Jsonaf_kernel.Conv
+module%test [@name "json"] _ = struct
+  open Jsonaf_kernel.Conv
 
-    type t = { users : string list } [@@deriving jsonaf_of]
+  type t = { users : string list } [@@deriving jsonaf_of]
 
-    let%expect_test "printf format string edge case" =
-      let my_t = { users = [ "me"; "you" ] } in
-      [%log.global (my_t : (t[@j]))];
-      [%expect {| (my_t(Object((users(Array((String me)(String you))))))) |}];
-      Deferred.unit
-    ;;
-  end)
-;;
+  let%expect_test "printf format string edge case" =
+    let my_t = { users = [ "me"; "you" ] } in
+    [%log.global (my_t : (t[@j]))];
+    [%expect {| (my_t(Object((users(Array((String me)(String you))))))) |}];
+    Deferred.unit
+  ;;
+end

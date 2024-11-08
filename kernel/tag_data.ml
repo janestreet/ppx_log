@@ -19,22 +19,26 @@ let option_attr = empty_attr "sexp.option"
 
 let parse e =
   let t =
-    match e with
-    | { pexp_desc = Pexp_constant constant; _ } -> Constant constant
-    | { pexp_desc = Pexp_constraint (expr, ctyp); _ } -> Type_constrained (expr, ctyp)
-    | [%expr [%here]] -> Here_extension
-    | e -> String_expression e
+    match Ppxlib_jane.Shim.Expression_desc.of_parsetree ~loc:e.pexp_loc e.pexp_desc with
+    | Pexp_constant constant -> Constant constant
+    | Pexp_constraint (expr, Some ctyp, _) -> Type_constrained (expr, ctyp)
+    | _ ->
+      (match e with
+       | [%expr [%here]] -> Here_extension
+       | e -> String_expression e)
   in
   { txt = t; loc = e.pexp_loc }
 ;;
 
 let type_labelled_constant ~loc const =
   let e = pexp_constant ~loc const in
-  match const with
+  match Ppxlib_jane.Shim.Constant.of_parsetree const with
   | Pconst_integer (_ : string * char option) -> [%expr Int [%e e]]
   | Pconst_char (_ : char) -> [%expr Char [%e e]]
   | Pconst_string (_ : string * location * string option) -> [%expr String [%e e]]
   | Pconst_float (_ : string * char option) -> [%expr Float [%e e]]
+  | Pconst_unboxed_float _ | Pconst_unboxed_integer _ ->
+    Location.raise_errorf "Unboxed numeric constants not supported" ~loc
 ;;
 
 let sexp_of_constraint ~loc expr ctyp =
