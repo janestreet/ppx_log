@@ -23,7 +23,15 @@ let ext kind =
   Extension.declare name Extension.Context.expression pattern (expand kind)
 ;;
 
-let extensions = List.map Extension_kind.all ~f:ext
+let ext_raw_message =
+  Extension.declare
+    "log.make_raw"
+    Extension.Context.expression
+    (Raw_message.pattern ())
+    (fun ~loc:(_ : location) ~path:(_ : label) -> Raw_message.render)
+;;
+
+let extensions = ext_raw_message :: List.map Extension_kind.all ~f:ext
 let () = Driver.register_transformation "log" ~extensions
 
 module Log_tag = Log_tag

@@ -353,7 +353,29 @@ let test_extensions () =
                                                         never] in
          ((ppx_log_statement ())[@nontail ])))
       [@merlin.hide ])
-    else Ppx_log_syntax.Global.default))
+    else Ppx_log_syntax.Global.default;
+    (let raw_message =
+       (((Ppx_log_types.Message_source.Private.code
+            ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:37
+            ~module_name:Stdlib.__MODULE__)[@merlin.hide ]),
+         (`Structured
+            (Ppx_log_types.Message_sexp.create (Some (String_literal "hi"))
+               ~tags:[{ Ppx_log_types.Log_tag.name = "1"; data = (Int 1) };
+                     { Ppx_log_types.Log_tag.name = "2"; data = (Int 2) };
+                     { Ppx_log_types.Log_tag.name = "3"; data = (Int 3) }]))) in
+     if ((Ppx_log_syntax.Global.would_log (Some `Error))[@merlin.hide ])
+     then
+       ((let ppx_log_statement () =
+           Ppx_log_syntax.Global.message ~level:`Error
+             (match raw_message with
+              | (message_source, message_data) -> message_data)
+             (match raw_message with
+              | (message_source, message_data) -> message_source)[@@ocaml.inline
+                                                                   never]
+           [@@ocaml.local never][@@ocaml.specialise never] in
+         ((ppx_log_statement ())[@nontail ]))
+       [@merlin.hide ])
+     else Ppx_log_syntax.Global.default)))
 let () = Ppx_inline_test_lib.unset_lib "ppx_log_test"
 let () =
   ((Ppx_expect_runtime.Current_file.unset)[@alert "-ppx_expect_runtime"]) ()

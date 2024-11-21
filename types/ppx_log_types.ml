@@ -8,6 +8,7 @@ module Log_tag = Log_tag
 module Message_data = Message_data
 module Message_sexp = Message_sexp
 module Message_source = Message_source
+module Raw_message = Raw_message
 module Tag_data = Tag_data
 
 module type S = sig

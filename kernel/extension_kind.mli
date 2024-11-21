@@ -19,6 +19,7 @@ module Format : sig
     | `Message
     | `Sexp
     | `Printf
+    | `Raw
     ]
 end
 
