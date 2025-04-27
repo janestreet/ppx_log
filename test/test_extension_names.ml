@@ -9,33 +9,41 @@ let%expect_test "Extension names" =
     @log
     @log.debug
     @log.debug_format
+    @log.debug_raw
     @log.debug_sexp
     @log.debug_string
     @log.error
     @log.error_format
+    @log.error_raw
     @log.error_sexp
     @log.error_string
     @log.format
     @log.global
     @log.global.debug
     @log.global.debug_format
+    @log.global.debug_raw
     @log.global.debug_sexp
     @log.global.debug_string
     @log.global.error
     @log.global.error_format
+    @log.global.error_raw
     @log.global.error_sexp
     @log.global.error_string
     @log.global.format
     @log.global.info
     @log.global.info_format
+    @log.global.info_raw
     @log.global.info_sexp
     @log.global.info_string
+    @log.global.raw
     @log.global.sexp
     @log.global.string
     @log.info
     @log.info_format
+    @log.info_raw
     @log.info_sexp
     @log.info_string
+    @log.raw
     @log.sexp
     @log.string
     |}]

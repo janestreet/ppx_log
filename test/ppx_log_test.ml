@@ -1,0 +1,4 @@
+module Ppx_output_test = Ppx_output_test
+module Test_extension_names = Test_extension_names
+module Test_log_extensions = Test_log_extensions
+module Test_log_source_position = Test_log_source_position

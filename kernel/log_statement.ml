@@ -9,6 +9,7 @@ type t =
   ; level : Optional_arg.t
   ; time : Optional_arg.t
   ; legacy_tags : Optional_arg.t
+  ; loc_override : expression option
   ; loc : location
   }
 
@@ -46,6 +47,7 @@ let create
   ; tags_attr
   ; level_attr
   ; time_attr
+  ; loc_attr
   ; legacy_add_extra_tag_parentheses
   }
   ~loc
@@ -61,7 +63,7 @@ let create
       if legacy_add_extra_tag_parentheses
       then `Message_with_extra_tag_parentheses
       else `Message
-    | (`Printf | `Sexp | `String) as format -> format
+    | (`Printf | `Sexp | `String | `Raw) as format -> format
   in
   let log, args =
     match log_kind with
@@ -70,19 +72,14 @@ let create
       Ast_pattern.(parse (pexp_apply __ __)) loc args (fun log_expr args ->
         `Instance log_expr, Extension_payload.Args args)
   in
-  { format; log; args; level; time; legacy_tags; loc }
+  { format; log; args; level; time; legacy_tags; loc_override = loc_attr; loc }
 ;;
 
-let render_source ~loc =
-  let open (val Ast_builder.make loc) in
-  [%expr
-    Ppx_log_types.Message_source.Private.code
-      ~pos_fname:[%e estring (Ppx_here_expander.expand_filename loc.loc_start.pos_fname)]
-      ~pos_lnum:[%e eint loc.loc_start.pos_lnum]
-      ~module_name:Stdlib.__MODULE__ [@merlin.hide]]
-;;
-
-let message_data format extension_payload ~loc =
+let message_data
+  (format : [< `Message | `Message_with_extra_tag_parentheses | `Sexp | `String ])
+  extension_payload
+  ~loc
+  =
   let open (val Ast_builder.make loc) in
   match format with
   | (`Message | `Message_with_extra_tag_parentheses) as format ->
@@ -101,7 +98,7 @@ let message_data format extension_payload ~loc =
       match Extension_payload.single_expression_or_error extension_payload ~loc with
       (* [%log.global.sexp (... : T.t)] uses [T.sexp_of_t]. *)
       | [%expr ([%e? expr] : [%t? typ])] ->
-        let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ in
+        let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ ~localize:false in
         Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
       (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t].  *)
       | expr -> expr
@@ -127,20 +124,53 @@ let message_data format extension_payload ~loc =
 let wrap_in_cold_function ~loc expr =
   [%expr
     (let[@cold] ppx_log_statement () = [%e expr] in
-     ppx_log_statement () [@nontail]) [@merlin.hide]]
+     ppx_log_statement () [@nontail])
+    [@merlin.hide]]
 ;;
 
-let render { format; log; args; level; time; legacy_tags; loc } =
+let get_tuple_from_expression extension_payload ~loc =
+  let open (val Ast_builder.make loc) in
+  let payload = Extension_payload.single_expression_or_error extension_payload ~loc in
+  let source_label = "message_source" in
+  let data_label = "message_data" in
+  let tuple_element_patterns =
+    [ Ast_builder.Default.ppat_var ~loc (Located.mk source_label)
+    ; Ast_builder.Default.ppat_var ~loc (Located.mk data_label)
+    ]
+  in
+  let tuple_pattern = Ast_builder.Default.ppat_tuple ~loc tuple_element_patterns in
+  let build_tuple_element_node ~var_to_extract =
+    Ast_builder.Default.pexp_match
+      ~loc
+      payload
+      (* match payload against a pattern (lhs) defining a tuple. If it matches, return an expression (rhs) that is
+         the variable corresponding to the fst or snd element of the tuple.
+      *)
+      [ case ~lhs:tuple_pattern ~rhs:(evar var_to_extract) ~guard:None ]
+  in
+  ( build_tuple_element_node ~var_to_extract:source_label
+  , build_tuple_element_node ~var_to_extract:data_label )
+;;
+
+let render { format; log; args; level; time; legacy_tags; loc_override; loc } =
   let open (val Ast_builder.make loc) in
   let function_name = Log_kind.log_function log ~loc in
-  let make_log_statement data =
+  let make_log_statement ?source data () =
+    let source =
+      match source with
+      | Some x -> x
+      | None ->
+        (match loc_override with
+         | None -> Message_source.render { loc }
+         | Some expr -> Message_source.of_source_code_position_expr expr)
+    in
     List.filter_opt
       [ Optional_arg.to_arg level ~name:"level"
       ; Optional_arg.to_arg time ~name:"time"
       ; Optional_arg.to_arg legacy_tags ~name:"tags"
       ; Log_kind.log_arg log
       ; Some (Nolabel, data)
-      ; Some (Nolabel, render_source ~loc)
+      ; Some (Nolabel, source)
       ]
     |> Ast_builder.Default.pexp_apply function_name ~loc
   in
@@ -154,10 +184,15 @@ let render { format; log; args; level; time; legacy_tags; loc } =
 
          The log statement itself returns unit, so I think unit makes sense here. *)
       pexp_apply
-        [%expr Printf.ksprintf (fun str -> [%e make_log_statement [%expr `String str]])]
+        [%expr
+          Printf.ksprintf (fun str -> [%e make_log_statement [%expr `String str] ()])]
         (Extension_payload.to_args args)
+    | `Raw ->
+      (* [%log.global.raw* my_expr] assumes [my_expr] is a [Message_source.t * Message_data.t] *)
+      let source, data = get_tuple_from_expression args ~loc in
+      make_log_statement ~source data ()
     | (`String | `Sexp | `Message | `Message_with_extra_tag_parentheses) as format ->
-      make_log_statement (message_data format args ~loc)
+      make_log_statement (message_data format args ~loc) ()
   in
   [%expr
     if [%e Log_kind.would_log log ~level ~loc] [@merlin.hide]

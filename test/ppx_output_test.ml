@@ -6,7 +6,9 @@ let test_locations () =
   [%log.global.info ([%here] : Source_code_position.t)];
   [%log.global.info "message" [%here]];
   [%log.global.info "message" ([%here] : Source_code_position.t)];
-  [%log.global.info "message" ~h:[%here]]
+  [%log.global.info "message" ~h:[%here]];
+  let here = [%here] in
+  [%log.global.info "message" [@@loc here]]
 ;;
 
 let test () =
@@ -33,5 +35,7 @@ let test_extensions () =
   [%log log "test" [@@time Some Time_float.epoch] [@@level my_level]];
   [%log.global.string 3 |> Int.to_string];
   [%log.string log (Int.to_string 3)];
-  [%log.global.sexp 3 |> Int.sexp_of_t]
+  [%log.global.sexp 3 |> Int.sexp_of_t];
+  let raw_message = [%log.make_raw "hi" (1 : int) (2 : int) (3 : int)] in
+  [%log.global.error_raw raw_message]
 ;;

@@ -29,6 +29,7 @@ module Format = struct
     | `Message
     | `Sexp
     | `Printf
+    | `Raw
     ]
   [@@deriving enumerate]
 
@@ -37,6 +38,7 @@ module Format = struct
     | `Sexp -> Some "sexp"
     | `Printf -> Some "format"
     | `String -> Some "string"
+    | `Raw -> Some "raw"
   ;;
 end
 

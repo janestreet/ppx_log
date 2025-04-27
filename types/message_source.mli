@@ -16,4 +16,5 @@ type t =
 
 module Private : sig
   val code : pos_fname:string -> pos_lnum:int -> module_name:string -> t
+  val of_source_code_position : Source_code_position.t -> t
 end

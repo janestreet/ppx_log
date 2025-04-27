@@ -36,4 +36,10 @@ module Private = struct
   let code ~pos_fname ~pos_lnum ~module_name =
     Code { pos_fname; pos_lnum; library_name = libname ~module_name }
   ;;
+
+  let of_source_code_position (x : Source_code_position.t) =
+    match x with
+    | { pos_fname; pos_lnum; pos_bol = _; pos_cnum = _ } ->
+      Code { pos_fname; pos_lnum; library_name = "Unknown" }
+  ;;
 end

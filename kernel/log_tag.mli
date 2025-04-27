@@ -25,8 +25,7 @@ val compare_label : t -> t -> int
       ~_:expr        => {label = ""; data = String_expression expr}
       ~_:(expr : t)  => {label = ""; data = Type_constrained (expr, t)}
       ?x:expr        => invalid
-   v}
-*)
+    v} *)
 val parse_arg : arg_label * expression -> t
 
 (** Produces an expression that will evaluate to a [Log_tag.t list]. *)
