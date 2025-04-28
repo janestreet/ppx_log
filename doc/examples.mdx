@@ -85,7 +85,7 @@ There are also attributes for specifying a dynamic level, time, or tag set.
 - : unit = ()
 ```
 
-# Ppx_log_syntax
+# `Ppx_log_syntax`
 
 `[%log]` doesn't generate function calls to `Async_log` directly, but instead to
 `Ppx_log_syntax`, which `Async` then shadows to point to `Async_log` functions. This means
@@ -135,9 +135,28 @@ let my_t = { users = [ "me"; "you" ] }
 ```
 
 ## Source code position output
-`ppx_log` can add source code position to each logged message,
-configurable at a library level by the `-log-source-position` switch.
+`ppx_log` can add source code position to each logged message in two ways. The legacy way
+is configurable at a library level by the `-log-source-position` switch and adds source
+code positions as a tag to each message:
 
 ```sexp
 (preprocess (pps (ppx_jane ... -log-source-position)))
+```
+
+The non-legacy way is to use structured logging where positions will be included by
+default (most Async_log outputs do not accept structured messages and so get a downgraded
+type that does not have source locations).
+
+In non-legacy usage, the source can be customized using `[@@loc]`:
+```ocaml
+module Warning_kind = struct
+  type t = 
+    | Long_async_cycle
+    | Falling_behind 
+    [@@deriving sexp]
+end
+
+let emit_warning ~(here : [%call_pos]) kind =
+  [%log.global.info "Warning" (kind : Warning_kind.t) [@@loc here]]
+;;
 ```

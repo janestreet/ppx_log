@@ -1,7 +1,8 @@
-(** [ppx_log] translates to code that references a [module Ppx_log_syntax :
-    Ppx_log_types.S] expected to be in scope. Normally, this is provided by an actual log
-    implementation, like [Async_log]. If the module isn't in scope, this library provides
-    a stub implementation with an alert to direct users to the right place. *)
+(** [ppx_log] translates to code that references a
+    [module Ppx_log_syntax : Ppx_log_types.S] expected to be in scope. Normally, this is
+    provided by an actual log implementation, like [Async_log]. If the module isn't in
+    scope, this library provides a stub implementation with an alert to direct users to
+    the right place. *)
 
 open! Base
 

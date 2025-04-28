@@ -9,6 +9,7 @@ let single_expr_attr name =
 let tags_attr = single_expr_attr "tags"
 let time_attr = single_expr_attr "time"
 let level_attr = single_expr_attr "level"
+let loc_attr = single_expr_attr "loc"
 
 let legacy_add_extra_tag_parentheses_attr =
   Attribute.declare "legacy_tag_parentheses" Pstr_eval Ast_pattern.(pstr nil) ()
@@ -19,6 +20,7 @@ type t =
   ; tags_attr : expression option
   ; level_attr : expression option
   ; time_attr : expression option
+  ; loc_attr : expression option
   ; legacy_add_extra_tag_parentheses : bool
   }
 
@@ -30,6 +32,7 @@ let pattern () =
     ; tags_attr = Attribute.get tags_attr decl
     ; level_attr = Attribute.get level_attr decl
     ; time_attr = Attribute.get time_attr decl
+    ; loc_attr = Attribute.get loc_attr decl
     ; legacy_add_extra_tag_parentheses =
         Attribute.get legacy_add_extra_tag_parentheses_attr decl |> Option.is_some
     }

@@ -42,7 +42,7 @@ let type_labelled_constant ~loc const =
 ;;
 
 let sexp_of_constraint ~loc expr ctyp =
-  let sexp_of = Ppx_sexp_conv_expander.Sexp_of.core_type ctyp in
+  let sexp_of = Ppx_sexp_conv_expander.Sexp_of.core_type ctyp ~localize:false in
   eapply ~loc sexp_of [ expr ]
 ;;
 
@@ -68,7 +68,7 @@ let sexp_option_expr expr ~type_without_option:typ ~loc =
       | Some value ->
         Some
           (Ppx_log_types.Tag_data.Sexp
-             ([%e Ppx_sexp_conv_expander.Sexp_of.core_type typ] value))] )
+             ([%e Ppx_sexp_conv_expander.Sexp_of.core_type typ ~localize:false] value))] )
 ;;
 
 let type_labelled_constraint ~loc expr ctyp =

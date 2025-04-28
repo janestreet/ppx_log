@@ -6,7 +6,9 @@ let test_locations () =
   [%log.global.info ([%here] : Source_code_position.t)];
   [%log.global.info "message" [%here]];
   [%log.global.info "message" ([%here] : Source_code_position.t)];
-  [%log.global.info "message" ~h:[%here]]
+  [%log.global.info "message" ~h:[%here]];
+  let here = [%here] in
+  [%log.global.info "message" [@@loc here]]
 ;;
 
 let test () =

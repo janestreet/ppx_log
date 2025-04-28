@@ -9,6 +9,7 @@ type t =
   ; level : Optional_arg.t
   ; time : Optional_arg.t
   ; legacy_tags : Optional_arg.t
+  ; loc_override : expression option
   ; loc : location
   }
 
@@ -46,6 +47,7 @@ let create
   ; tags_attr
   ; level_attr
   ; time_attr
+  ; loc_attr
   ; legacy_add_extra_tag_parentheses
   }
   ~loc
@@ -70,7 +72,7 @@ let create
       Ast_pattern.(parse (pexp_apply __ __)) loc args (fun log_expr args ->
         `Instance log_expr, Extension_payload.Args args)
   in
-  { format; log; args; level; time; legacy_tags; loc }
+  { format; log; args; level; time; legacy_tags; loc_override = loc_attr; loc }
 ;;
 
 let message_data
@@ -96,7 +98,7 @@ let message_data
       match Extension_payload.single_expression_or_error extension_payload ~loc with
       (* [%log.global.sexp (... : T.t)] uses [T.sexp_of_t]. *)
       | [%expr ([%e? expr] : [%t? typ])] ->
-        let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ in
+        let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ ~localize:false in
         Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
       (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t].  *)
       | expr -> expr
@@ -122,7 +124,8 @@ let message_data
 let wrap_in_cold_function ~loc expr =
   [%expr
     (let[@cold] ppx_log_statement () = [%e expr] in
-     ppx_log_statement () [@nontail]) [@merlin.hide]]
+     ppx_log_statement () [@nontail])
+    [@merlin.hide]]
 ;;
 
 let get_tuple_from_expression extension_payload ~loc =
@@ -149,11 +152,18 @@ let get_tuple_from_expression extension_payload ~loc =
   , build_tuple_element_node ~var_to_extract:data_label )
 ;;
 
-let render { format; log; args; level; time; legacy_tags; loc } =
+let render { format; log; args; level; time; legacy_tags; loc_override; loc } =
   let open (val Ast_builder.make loc) in
   let function_name = Log_kind.log_function log ~loc in
   let make_log_statement ?source data () =
-    let source = Option.value source ~default:(Message_source.render { loc }) in
+    let source =
+      match source with
+      | Some x -> x
+      | None ->
+        (match loc_override with
+         | None -> Message_source.render { loc }
+         | Some expr -> Message_source.of_source_code_position_expr expr)
+    in
     List.filter_opt
       [ Optional_arg.to_arg level ~name:"level"
       ; Optional_arg.to_arg time ~name:"time"
