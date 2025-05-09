@@ -6,7 +6,6 @@
   (pps ppx_jane ppx_expect ppx_let ppx_jsonaf_conv)))
 
 (rule
- (alias runtest)
  (deps
   (:first_dep ppx_output_test.ml.pp)
   ppx_output_test.output
@@ -15,4 +14,5 @@
   jbuild)
  (action
   (bash
-    "cat <(echo '(* -*- mode: tuareg; -*- *)') %{first_dep}  | \\\n%{workspace_root}/app/make-corrected-file/bin/main.exe ppx_output_test.output")))
+    "cat <(echo '(* -*- mode: tuareg; -*- *)') %{first_dep}  | \\\n%{workspace_root}/app/make-corrected-file/bin/main.exe ppx_output_test.output"))
+ (alias runtest))
