@@ -109,7 +109,7 @@ let message_data
       match Extension_payload.single_expression_or_error extension_payload ~loc with
       | { pexp_desc = Pexp_constant (Pconst_string (s, loc, delimiter)); pexp_loc; _ } ->
         Ppx_string.expand
-          ~config:Ppx_string.config_for_string
+          ~config:(Ppx_string.config_for_string ~local:false)
           ~expr_loc:pexp_loc
           ~string_loc:loc
           ~string:s

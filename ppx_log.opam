@@ -31,5 +31,5 @@ depends: [
 available: arch != "arm32" & arch != "x86_32"
 synopsis: "Ppx_sexp_message-like extension nodes for lazily rendering log messages"
 description: "
-Part of the Jane Street's PPX rewriters collection.
+Part of the Jane Street's PPX rewriters collection. 
 "
