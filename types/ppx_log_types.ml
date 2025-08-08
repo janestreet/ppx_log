@@ -12,26 +12,41 @@ module Raw_message = Raw_message
 module Tag_data = Tag_data
 
 module type S = sig
-  type t
   type time
-  type return_type
 
-  (* [would_log] and [Global.would_log] take an option because [Async.Log.would_log] takes
+  (** A use of the ppx like [[%log.t t ...]] is converted to code like:
+      {[
+        if Ppx_log_syntax.Instance.would_log t level
+        then Ppx_log_syntx.Instance.message t args
+        else Ppx_log_syntax.Instance.default
+      ]} *)
+  module Instance : sig
+    type t
+    type return_type
+
+    (* [would_log] and [Global.would_log] take an option because [Async.Log.would_log] takes
      an option and we want to pass in a [Some `Debug] statically so that it won't
      allocate. If we made a wrapper function that always just wrapped the level in [Some],
      it might allocate. *)
-  val would_log : t -> Level.t option -> bool
-  val default : return_type
+    val would_log : t -> Level.t option -> bool
+    val default : return_type
 
-  val message
-    :  ?level:Level.t
-    -> ?time:time
-    -> ?tags:(string * string) list
-    -> t
-    -> Message_data.t
-    -> Message_source.t
-    -> return_type
+    val message
+      :  ?level:Level.t
+      -> ?time:time
+      -> ?tags:(string * string) list
+      -> t
+      -> Message_data.t
+      -> Message_source.t
+      -> return_type
+  end
 
+  (** A use of the ppx like [[%log.global ...]] is converted to code like:
+      {[
+        if Ppx_log_syntax.Global.would_log level
+        then Ppx_log_syntx.Global.message args
+        else Ppx_log_syntax.Global.default
+      ]} *)
   module Global : sig
     type return_type
 

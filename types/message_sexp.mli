@@ -17,7 +17,7 @@ val create
   -> tags:Log_tag.t list
   -> t
 
-(** [label] is [None] in cases like [%log log (tag1 : t1) ...] or
+(** [label] is [None] in cases like [%log.t log (tag1 : t1) ...] or
     [%log.global "" (tag1 : t1) ...]. *)
 val label : t -> Label.t option
 

@@ -4,8 +4,8 @@ ppx_log is the recommended way of writing logs to `Async.Log`. To use it, simply
 Async`, then you can write statements like:
 
 ```ocaml
-[%log log "example log" (content : Content.t)]
-[%log.global "example log" (content : Content.t)]
+[%log.t log "example log" (content : Content.t)]
+[%log "example log" (content : Content.t)] (* goes to the Global log  *)
 ```
 
 Some benefits of ppx_log:

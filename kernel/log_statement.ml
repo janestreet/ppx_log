@@ -4,7 +4,7 @@ open Ppxlib
 
 type t =
   { format : [ `Message_with_extra_tag_parentheses | Extension_kind.Format.t ]
-  ; log : [ `Global | `Instance of expression ]
+  ; log : expression Log_kind.t
   ; args : Extension_payload.t
   ; level : Optional_arg.t
   ; time : Optional_arg.t
@@ -67,7 +67,7 @@ let create
   in
   let log, args =
     match log_kind with
-    | `Global -> `Global, Extension_payload.Expression args
+    | `Global | `Explicit_global -> `Global, Extension_payload.Expression args
     | `Instance () ->
       Ast_pattern.(parse (pexp_apply __ __)) loc args (fun log_expr args ->
         `Instance log_expr, Extension_payload.Args args)
@@ -98,7 +98,7 @@ let message_data
       match Extension_payload.single_expression_or_error extension_payload ~loc with
       (* [%log.global.sexp (... : T.t)] uses [T.sexp_of_t]. *)
       | [%expr ([%e? expr] : [%t? typ])] ->
-        let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ ~localize:false in
+        let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ ~stackify:false in
         Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
       (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t].  *)
       | expr -> expr
@@ -109,7 +109,7 @@ let message_data
       match Extension_payload.single_expression_or_error extension_payload ~loc with
       | { pexp_desc = Pexp_constant (Pconst_string (s, loc, delimiter)); pexp_loc; _ } ->
         Ppx_string.expand
-          ~config:(Ppx_string.config_for_string ~local:false)
+          ~config:(Ppx_string.config_for_string Global_input_heap_output)
           ~expr_loc:pexp_loc
           ~string_loc:loc
           ~string:s

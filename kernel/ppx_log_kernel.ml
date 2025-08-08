@@ -20,7 +20,9 @@ let expand ~loc ~path:(_ : label) kind parsed =
 
 let ext kind =
   let name = Extension_kind.name kind in
-  Extension.declare name Extension.Context.expression pattern (expand kind)
+  match kind.log_kind with
+  | `Global | `Explicit_global | `Instance () ->
+    Extension.declare name Extension.Context.expression pattern (expand kind)
 ;;
 
 let ext_raw_message =

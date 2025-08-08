@@ -6,28 +6,33 @@
 
 open! Base
 
-type t
 type time
-type return_type = [ `Ppx_log_syntax_implementation_missing ]
 
-val would_log : t -> Ppx_log_types.Level.t option -> bool
-val default : return_type
+module Instance : sig
+  type t
+  type return_type = [ `Ppx_log_syntax_implementation_missing ]
 
-val message
-  :  ?level:Ppx_log_types.Level.t
-  -> ?time:time
-  -> ?tags:(string * string) list
-  -> t
-  -> Ppx_log_types.Message_data.t
-  -> Ppx_log_types.Message_source.t
-  -> return_type
-[@@alert
-  ppx_log_syntax_not_in_scope
-    "In order to use [ppx_log], you need to have a [Ppx_log_syntax] in scope. This is \
-     usually provided with [open Async], [open Async_log.Ppx_log_syntax], or [open \
-     Async_log_kernel.Ppx_log_syntax]."]
+  val would_log : t -> Ppx_log_types.Level.t option -> bool
+  val default : return_type
+
+  val message
+    :  ?level:Ppx_log_types.Level.t
+    -> ?time:time
+    -> ?tags:(string * string) list
+    -> t
+    -> Ppx_log_types.Message_data.t
+    -> Ppx_log_types.Message_source.t
+    -> return_type
+  [@@alert
+    ppx_log_syntax_not_in_scope
+      "In order to use [ppx_log], you need to have a [Ppx_log_syntax] in scope. This is \
+       usually provided with [open Async], [open Async_log.Ppx_log_syntax], or [open \
+       Async_log_kernel.Ppx_log_syntax]."]
+end
 
 module Global : sig
+  type return_type = [ `Ppx_log_syntax_implementation_missing ]
+
   val would_log : Ppx_log_types.Level.t option -> bool
   val default : return_type
 

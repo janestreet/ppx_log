@@ -29,13 +29,13 @@ let%expect_test "*_sexp and *_format extensions" =
   [%log.global.info_sexp (e : _ Or_error.t)];
   let%bind () = Log.Global.flushed () in
   [%expect {| (Error(hello(5 5))) |}];
-  [%log.debug_sexp (force Log.Global.log) (e : _ Or_error.t)];
+  [%log.t.debug_sexp (force Log.Global.log) (e : _ Or_error.t)];
   let%bind () = Log.Global.flushed () in
   [%expect {| |}];
   [%log.global.info_format "hello %d" 5];
   let%bind () = Log.Global.flushed () in
   [%expect {| hello 5 |}];
-  [%log.error_format (force Log.Global.log) "world %d" 10];
+  [%log.t.error_format (force Log.Global.log) "world %d" 10];
   let%bind () = Log.Global.flushed () in
   [%expect {| world 10 |}];
   (* The below is an edge case from a catalog test. The inner experession should be
@@ -99,7 +99,7 @@ let%expect_test "legacy tag parentheses" =
   [%expect {| () |}];
   let%bind () =
     test
-      (fun () -> [%log (force Log.Global.log) ~a:123 [@@legacy_tag_parentheses]])
+      (fun () -> [%log.t (force Log.Global.log) ~a:123 [@@legacy_tag_parentheses]])
       [%sexp { a = 123 }]
   in
   [%expect {| ((a 123)) |}];
@@ -142,7 +142,7 @@ let%expect_test "logging with raw_message and `Raw format" =
   let i = 1 in
   let raw_message = [%log.make_raw "hi" (i : int)] in
   let source, data = raw_message in
-  [%log.raw (force Log.Global.log) raw_message];
+  [%log.t.raw (force Log.Global.log) raw_message];
   [%log.global.error_raw source, data];
   [%log.global.raw [%log.make_raw "hi" (i : int)]];
   let%bind () = Log.Global.flushed () in
