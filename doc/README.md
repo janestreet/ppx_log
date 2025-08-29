@@ -17,4 +17,4 @@ You can also hook it up to your own logging libraries.
 
 Features and examples
 ------------------
-Take a look at [the mdx file](examples.mdx) for tested examples.
+Take a look at [the mdx file](./examples.mdx) for tested examples.
