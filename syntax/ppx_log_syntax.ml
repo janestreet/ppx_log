@@ -14,7 +14,7 @@ end
 module Global = struct
   type return_type = [ `Ppx_log_syntax_implementation_missing ]
 
-  let would_log = Fn.const false
+  let would_log _ = false
   let default = Instance.default
   let message ?level:_ ?time:_ ?tags:_ _ _ = default
 end

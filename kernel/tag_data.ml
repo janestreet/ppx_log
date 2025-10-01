@@ -37,7 +37,7 @@ let type_labelled_constant ~loc const =
   | Pconst_char (_ : char) -> [%expr Char [%e e]]
   | Pconst_string (_ : string * location * string option) -> [%expr String [%e e]]
   | Pconst_float (_ : string * char option) -> [%expr Float [%e e]]
-  | Pconst_unboxed_float _ | Pconst_unboxed_integer _ ->
+  | Pconst_unboxed_float _ | Pconst_unboxed_integer _ | Pconst_untagged_char _ ->
     Location.raise_errorf "Unboxed numeric constants not supported" ~loc
 ;;
 
