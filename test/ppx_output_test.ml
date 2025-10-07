@@ -18,10 +18,10 @@ let test () =
   [%log.global.info (5 : int)];
   [%log.global.error "test" [@@tags []]];
   let log = force Log.Global.log in
-  [%log.debug log "test" (5 : int) [@@tags [ "hello", "world" ]]];
-  [%log.info log (5 : int)];
+  [%log.t.debug log "test" (5 : int) [@@tags [ "hello", "world" ]]];
+  [%log.t.info log (5 : int)];
   let my_tags = [ "a", "b" ] in
-  [%log.error log "test" [@@tags my_tags]]
+  [%log.t.error log "test" [@@tags my_tags]]
 ;;
 
 let test_extensions () =
@@ -29,12 +29,13 @@ let test_extensions () =
   [%log.global.error_format "world %s" "yes"];
   let log = force Log.Global.log in
   let generate_sexp () = Sexp.Atom "" in
-  [%log.sexp log (5 : int)];
-  [%log.sexp log (generate_sexp ())];
+  [%log.t.sexp log (5 : int)];
+  [%log.t.sexp log (generate_sexp ())];
   let my_level = Some `Debug in
-  [%log log "test" [@@time Some Time_float.epoch] [@@level my_level]];
+  [%log.t log "test" [@@time Some Time_float.epoch] [@@level my_level]];
   [%log.global.string 3 |> Int.to_string];
-  [%log.string log (Int.to_string 3)];
+  [%log.string 3 |> Int.to_string];
+  [%log.t.string log (Int.to_string 3)];
   [%log.global.sexp 3 |> Int.sexp_of_t];
   let raw_message = [%log.make_raw "hi" (1 : int) (2 : int) (3 : int)] in
   [%log.global.error_raw raw_message]

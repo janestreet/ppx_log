@@ -37,12 +37,12 @@ let type_labelled_constant ~loc const =
   | Pconst_char (_ : char) -> [%expr Char [%e e]]
   | Pconst_string (_ : string * location * string option) -> [%expr String [%e e]]
   | Pconst_float (_ : string * char option) -> [%expr Float [%e e]]
-  | Pconst_unboxed_float _ | Pconst_unboxed_integer _ ->
+  | Pconst_unboxed_float _ | Pconst_unboxed_integer _ | Pconst_untagged_char _ ->
     Location.raise_errorf "Unboxed numeric constants not supported" ~loc
 ;;
 
 let sexp_of_constraint ~loc expr ctyp =
-  let sexp_of = Ppx_sexp_conv_expander.Sexp_of.core_type ctyp ~localize:false in
+  let sexp_of = Ppx_sexp_conv_expander.Sexp_of.core_type ctyp ~stackify:false in
   eapply ~loc sexp_of [ expr ]
 ;;
 
@@ -68,7 +68,7 @@ let sexp_option_expr expr ~type_without_option:typ ~loc =
       | Some value ->
         Some
           (Ppx_log_types.Tag_data.Sexp
-             ([%e Ppx_sexp_conv_expander.Sexp_of.core_type typ ~localize:false] value))] )
+             ([%e Ppx_sexp_conv_expander.Sexp_of.core_type typ ~stackify:false] value))] )
 ;;
 
 let type_labelled_constraint ~loc expr ctyp =

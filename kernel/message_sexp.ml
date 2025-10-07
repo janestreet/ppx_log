@@ -14,18 +14,18 @@ let of_extension_payload extension_payload ~loc =
     | hd :: tl ->
       (* The first argument may be a tag, nothing, or a label. *)
       (match hd with
-       (* [%log log "" ...] has "" ignored *)
+       (* [%log.t log "" ...] has "" ignored *)
        | Nolabel, [%expr ""] -> None, tl
-       (* [%log log (a : t1) (b : t2)] treats a and b both as tags *)
+       (* [%log.t log (a : t1) (b : t2)] treats a and b both as tags *)
        | _, [%expr ([%e? _] : [%t? _])]
-       (* [%log log ~label:...] treats the the first arg as a tag as well *)
+       (* [%log.t log ~label:...] treats the the first arg as a tag as well *)
        | (Labelled (_ : string) | Optional (_ : string)), (_ : expression)
        (* [%message] has a special case for [%here]. We can interpret it as a tag. *)
        | Nolabel, [%expr [%here]] -> None, hd :: tl
        (* Unlabelled literals can be interpreted as a label. These should only be
           strings in practice. *)
        | Nolabel, { pexp_desc = Pexp_constant c; _ } -> Some (`Literal c), tl
-       (* Otherwise, [%log [%e e]] ought to be an unlabelled expression, in which case it
+       (* Otherwise, [%log.t [%e e]] ought to be an unlabelled expression, in which case it
           can be interpreted as a string label payload. *)
        | Nolabel, hd -> Some (`String_expr hd), tl)
     | [] -> None, []
@@ -44,6 +44,7 @@ let constant_to_string_expr constant ~loc =
           Ppx_sexp_message_expander.sexp_of_labelled_exprs
             [ Nolabel, pexp_constant constant ]
             ~omit_nil:false
+            ~stackify:false
             ~loc]
       with
       | Atom x -> x

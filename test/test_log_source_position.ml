@@ -22,7 +22,7 @@ let%expect_test "logs source position from opted-in library" =
 
 let%expect_test "logs no source position from current library" =
   let log = create_log ~level:`Info in
-  [%log.info log "expect NO position in tags"];
+  [%log.t.info log "expect NO position in tags"];
   let%bind () = Log.flushed log in
   [%expect
     {|
@@ -108,7 +108,7 @@ let%expect_test "globally logs no source position and other tags from current li
       (message (Sexp "expect NO position in tags")) (tags (("another tag" hi)))))
     |}];
   let log = Lazy.force Log.Global.log in
-  [%log.info log "expect NO position in tags" [@@tags [ "another tag", "hi" ]]];
+  [%log.t.info log "expect NO position in tags" [@@tags [ "another tag", "hi" ]]];
   let%bind () = Log.flushed log in
   [%expect
     {|
