@@ -100,7 +100,7 @@ let message_data
       | [%expr ([%e? expr] : [%t? typ])] ->
         let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ ~stackify:false in
         Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
-      (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t].  *)
+      (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t]. *)
       | expr -> expr
     in
     [%expr `Sexp [%e payload]]
@@ -143,8 +143,9 @@ let get_tuple_from_expression extension_payload ~loc =
     Ast_builder.Default.pexp_match
       ~loc
       payload
-      (* match payload against a pattern (lhs) defining a tuple. If it matches, return an expression (rhs) that is
-         the variable corresponding to the fst or snd element of the tuple.
+      (* match payload against a pattern (lhs) defining a tuple. If it matches, return an
+         expression (rhs) that is the variable corresponding to the fst or snd element of
+         the tuple.
       *)
       [ case ~lhs:tuple_pattern ~rhs:(evar var_to_extract) ~guard:None ]
   in
@@ -188,7 +189,8 @@ let render { format; log; args; level; time; legacy_tags; loc_override; loc } =
           Printf.ksprintf (fun str -> [%e make_log_statement [%expr `String str] ()])]
         (Extension_payload.to_args args)
     | `Raw ->
-      (* [%log.global.raw* my_expr] assumes [my_expr] is a [Message_source.t * Message_data.t] *)
+      (* [%log.global.raw* my_expr] assumes [my_expr] is a
+         [Message_source.t * Message_data.t] *)
       let source, data = get_tuple_from_expression args ~loc in
       make_log_statement ~source data ()
     | (`String | `Sexp | `Message | `Message_with_extra_tag_parentheses) as format ->

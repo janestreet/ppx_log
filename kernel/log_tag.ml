@@ -29,8 +29,8 @@ let parse_arg (label, e) =
 ;;
 
 let render_list ts ~loc =
-  (* We have to render the whole list of [Log_tag.t]s into one expression, vs. creating
-     a list of expressions, because that avoids us having to do some kind of
+  (* We have to render the whole list of [Log_tag.t]s into one expression, vs. creating a
+     list of expressions, because that avoids us having to do some kind of
      [List.filter_opt] in the generated code. *)
   List.fold (List.rev ts) ~init:[%expr []] ~f:(fun acc { label; data } ->
     let label = Ast_builder.Default.estring label ~loc:data.loc in
