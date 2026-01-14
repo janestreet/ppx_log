@@ -86,7 +86,7 @@ let%expect_test "globally logs source position and other tags from opted-in libr
 
 let%expect_test "globally logs no source position from current library" =
   Log.Global.set_output [ log_output ];
-  [%log.global.info "expect NO position in tags"];
+  [%log.info "expect NO position in tags"];
   let%bind () = Log.Global.flushed () in
   [%expect
     {|
@@ -99,7 +99,7 @@ let%expect_test "globally logs no source position from current library" =
 
 let%expect_test "globally logs no source position and other tags from current library" =
   Log.Global.set_output [ log_output ];
-  [%log.global.info "expect NO position in tags" [@@tags [ "another tag", "hi" ]]];
+  [%log.info "expect NO position in tags" [@@tags [ "another tag", "hi" ]]];
   let%bind () = Log.Global.flushed () in
   [%expect
     {|

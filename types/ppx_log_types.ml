@@ -41,7 +41,7 @@ module type S = sig
       -> return_type
   end
 
-  (** A use of the ppx like [[%log.global ...]] is converted to code like:
+  (** A use of the ppx like [[%log ...]] is converted to code like:
       {[
         if Ppx_log_syntax.Global.would_log level
         then Ppx_log_syntx.Global.message args

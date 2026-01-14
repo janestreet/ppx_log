@@ -96,11 +96,11 @@ let message_data
   | `Sexp ->
     let payload =
       match Extension_payload.single_expression_or_error extension_payload ~loc with
-      (* [%log.global.sexp (... : T.t)] uses [T.sexp_of_t]. *)
+      (* [%log.sexp (... : T.t)] uses [T.sexp_of_t]. *)
       | [%expr ([%e? expr] : [%t? typ])] ->
         let sexp_of_fn = Ppx_sexp_conv_expander.Sexp_of.core_type typ ~stackify:false in
         Ast_builder.Default.eapply sexp_of_fn [ expr ] ~loc
-      (* [%log.global.sexp my_expr] assumes [my_expr] is a [Sexp.t]. *)
+      (* [%log.sexp my_expr] assumes [my_expr] is a [Sexp.t]. *)
       | expr -> expr
     in
     [%expr `Sexp [%e payload]]
@@ -189,8 +189,7 @@ let render { format; log; args; level; time; legacy_tags; loc_override; loc } =
           Printf.ksprintf (fun str -> [%e make_log_statement [%expr `String str] ()])]
         (Extension_payload.to_args args)
     | `Raw ->
-      (* [%log.global.raw* my_expr] assumes [my_expr] is a
-         [Message_source.t * Message_data.t] *)
+      (* [%log.raw* my_expr] assumes [my_expr] is a [Message_source.t * Message_data.t] *)
       let source, data = get_tuple_from_expression args ~loc in
       make_log_statement ~source data ()
     | (`String | `Sexp | `Message | `Message_with_extra_tag_parentheses) as format ->

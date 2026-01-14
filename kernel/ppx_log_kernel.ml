@@ -18,11 +18,46 @@ let expand ~loc ~path:(_ : label) kind parsed =
   Log_statement.create kind parsed ~loc ~log_source_position |> Log_statement.render
 ;;
 
+let correct_and_expand
+  ~(loc : location)
+  ~path
+  ~extension_name
+  ~corrected_name
+  ~kind
+  (parsed : Parsed_extension.t)
+  =
+  (* The ppx [Extension.declare] interface doesn’t give us access to the ‘outer’ payload
+     except for its location. So loc covers:
+     {v
+         [%log.... ...]
+          ^......^
+          1      1+name length
+     v}
+  *)
+  let corrected_name = String.tr ~target:'@' ~replacement:'%' corrected_name in
+  let add_cols (pos : Lexing.position) n = { pos with pos_cnum = pos.pos_cnum + n } in
+  Driver.register_correction
+    ~loc:
+      { loc_start = add_cols loc.loc_start 1
+      ; loc_end = add_cols loc.loc_start (1 + String.length extension_name)
+      ; loc_ghost = loc.loc_ghost
+      }
+    ~repl:corrected_name;
+  expand ~loc ~path kind parsed
+;;
+
 let ext kind =
   let name = Extension_kind.name kind in
   match kind.log_kind with
-  | `Global | `Explicit_global | `Instance () ->
+  | `Global | `Instance () ->
     Extension.declare name Extension.Context.expression pattern (expand kind)
+  | `Explicit_global ->
+    let corrected_name = Extension_kind.name { kind with log_kind = `Global } in
+    Extension.declare
+      name
+      Extension.Context.expression
+      pattern
+      (correct_and_expand ~extension_name:name ~corrected_name ~kind)
 ;;
 
 let ext_raw_message =

@@ -4,6 +4,7 @@ open! Ppxlib
 
 type t =
   { label : label
+  ; label_is_optional : bool
   ; data : Tag_data.t loc
   }
 [@@deriving fields ~getters]
