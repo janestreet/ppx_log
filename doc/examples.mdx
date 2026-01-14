@@ -41,6 +41,12 @@ val suffix : string = "CE"
 # [%log "message" (year : int) ~suffix];
 (message(year 2014)(suffix CE))
 - : unit = ()
+# [%log "with_optional" 
+        ~id1:(None : int option[@sexp.option])
+        ~id2:(Some 123 : int option[@sexp.option])
+        ~id3:(Some 456 : int option[@sexp.omit_nil])]
+(with_optional(id2 123)(id3(456)))
+- : unit = ()
 ```
 
 # Legacy options

@@ -22,4 +22,4 @@ val parse : expression -> t loc
 
     Example output: [Int 123] for constant tags, [Sexp ([%sexp_of: typ] expr)] for types
     that aren’t specially handled *)
-val render : t loc -> [ `Tag | `Tag_option ] * expression
+val render : t loc -> label_is_optional:bool -> [ `Tag | `Tag_option ] * expression

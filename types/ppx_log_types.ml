@@ -24,10 +24,10 @@ module type S = sig
     type t
     type return_type
 
-    (* [would_log] and [Global.would_log] take an option because [Async.Log.would_log] takes
-     an option and we want to pass in a [Some `Debug] statically so that it won't
-     allocate. If we made a wrapper function that always just wrapped the level in [Some],
-     it might allocate. *)
+    (* [would_log] and [Global.would_log] take an option because [Async.Log.would_log]
+       takes an option and we want to pass in a [Some `Debug] statically so that it won't
+       allocate. If we made a wrapper function that always just wrapped the level in
+       [Some], it might allocate. *)
     val would_log : t -> Level.t option -> bool
     val default : return_type
 
@@ -41,7 +41,7 @@ module type S = sig
       -> return_type
   end
 
-  (** A use of the ppx like [[%log.global ...]] is converted to code like:
+  (** A use of the ppx like [[%log ...]] is converted to code like:
       {[
         if Ppx_log_syntax.Global.would_log level
         then Ppx_log_syntx.Global.message args

@@ -20,17 +20,16 @@ let create ?(legacy_render_with_additional_parentheses = false) label ~tags =
 ;;
 
 let render { label; tags; legacy_render_with_additional_parentheses } =
-  (* For compatibility with [%sexp "message", { a1 : t1; a2 : t2 }] producing sexps
-     where the tags are in an extra layer of parentheses (message ((a1 .) (a2 .))), we
-     have extra logic for [legacy_render_with_additional_parentheses].
+  (* For compatibility with [%sexp "message", { a1 : t1; a2 : t2 }] producing sexps where
+     the tags are in an extra layer of parentheses (message ((a1 .) (a2 .))), we have
+     extra logic for [legacy_render_with_additional_parentheses].
 
      [%message] has some magic in 2 cases:
-     - "" = Nothing at all. So:
-       [%message "hello" ~i:(3 : int) ~j:(3 : int)] -> (hello (i 3) (j 3))
-       [%message "" ~i:(3 : int) ~j:(3 : int)] -> ((i 3) (j 3))
+     - "" = Nothing at all. So: [%message "hello" ~i:(3 : int) ~j:(3 : int)] -> (hello
+       (i 3) (j 3)) [%message "" ~i:(3 : int) ~j:(3 : int)] -> ((i 3) (j 3))
      - If the final output has format (<one-elt>), the outer parentheses are removed.
-       [%message "hello"] -> hello, NOT (hello)
-       [%message "" ~i:(3 : int)] -> (i 3), NOT ((i 3))
+       [%message "hello"] -> hello, NOT (hello) [%message "" ~i:(3 : int)] -> (i 3), NOT
+       ((i 3))
      - However, [%message ""] = () = Sexp.List []. *)
   let label =
     Option.map label ~f:(fun (String str | String_literal str) -> Sexp.Atom str)

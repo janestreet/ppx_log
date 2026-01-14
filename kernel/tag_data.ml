@@ -71,15 +71,25 @@ let sexp_option_expr expr ~type_without_option:typ ~loc =
              ([%e Ppx_sexp_conv_expander.Sexp_of.core_type typ ~stackify:false] value))] )
 ;;
 
-let type_labelled_constraint ~loc expr ctyp =
-  let default () =
-    match Attribute.consume log_json_attribute ctyp with
-    | Some (ctyp, ()) -> `Tag, [%expr Json ([%jsonaf_of: [%t ctyp]] [%e expr])]
-    | None ->
-      (match Attribute.get omit_nil_attr ctyp with
-       | Some () -> omit_nil_expr expr ctyp ~loc
-       | None -> `Tag, [%expr Sexp [%e sexp_of_constraint ~loc expr ctyp]])
-  in
+let json_option_expr expr ~type_without_option:typ ~loc =
+  ( `Tag_option
+  , [%expr
+      match [%e expr] with
+      | None -> None
+      | Some value -> Some (Ppx_log_types.Tag_data.Json ([%jsonaf_of: [%t typ]] value))] )
+;;
+
+let default_non_optional ~loc expr ctyp =
+  match Attribute.consume log_json_attribute ctyp with
+  | Some (ctyp, ()) ->
+    `Tag, [%expr Ppx_log_types.Tag_data.Json ([%jsonaf_of: [%t ctyp]] [%e expr])]
+  | None ->
+    (match Attribute.get omit_nil_attr ctyp with
+     | Some () -> omit_nil_expr expr ctyp ~loc
+     | None -> `Tag, [%expr Sexp [%e sexp_of_constraint ~loc expr ctyp]])
+;;
+
+let type_labelled_constraint ~label_is_optional ~loc expr ctyp =
   match ctyp with
   | [%type: int] -> `Tag, [%expr Int [%e expr]]
   | [%type: string] -> `Tag, [%expr String [%e expr]]
@@ -87,16 +97,27 @@ let type_labelled_constraint ~loc expr ctyp =
   | [%type: char] -> `Tag, [%expr Char [%e expr]]
   | [%type: bool] -> `Tag, [%expr Bool [%e expr]]
   | [%type: [%t? type_without_option] option] ->
-    (match Attribute.get option_attr ctyp with
-     | Some () -> sexp_option_expr expr ~type_without_option ~loc
-     | None -> default ())
-  | _ -> default ()
+    (match label_is_optional, Attribute.get option_attr ctyp with
+     | true, Some () ->
+       ( `Tag
+       , Ast_builder.Default.pexp_extension
+           ~loc
+           (Location.error_extensionf
+              ~loc
+              "Do not specify both [@sexp.option] and an optional label (?label).") )
+     | true, None | false, Some () ->
+       (match Attribute.get log_json_attribute ctyp with
+        | Some () -> json_option_expr expr ~type_without_option ~loc
+        | None -> sexp_option_expr expr ~type_without_option ~loc)
+     | false, None -> default_non_optional ~loc expr ctyp)
+  | _ -> default_non_optional ~loc expr ctyp
 ;;
 
-let render { txt = t; loc } =
+let render { txt = t; loc } ~label_is_optional =
   match t with
   | Constant const -> `Tag, type_labelled_constant ~loc const
-  | Type_constrained (expr, ctyp) -> type_labelled_constraint ~loc expr ctyp
+  | Type_constrained (expr, ctyp) ->
+    type_labelled_constraint ~label_is_optional ~loc expr ctyp
   | String_expression e -> `Tag, [%expr String [%e e]]
   | Here_extension ->
     `Tag, [%expr String [%e Ppx_here_expander.lift_position_as_string ~loc]]

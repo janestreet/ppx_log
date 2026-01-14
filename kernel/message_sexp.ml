@@ -22,11 +22,11 @@ let of_extension_payload extension_payload ~loc =
        | (Labelled (_ : string) | Optional (_ : string)), (_ : expression)
        (* [%message] has a special case for [%here]. We can interpret it as a tag. *)
        | Nolabel, [%expr [%here]] -> None, hd :: tl
-       (* Unlabelled literals can be interpreted as a label. These should only be
-          strings in practice. *)
+       (* Unlabelled literals can be interpreted as a label. These should only be strings
+          in practice. *)
        | Nolabel, { pexp_desc = Pexp_constant c; _ } -> Some (`Literal c), tl
-       (* Otherwise, [%log.t [%e e]] ought to be an unlabelled expression, in which case it
-          can be interpreted as a string label payload. *)
+       (* Otherwise, [%log.t [%e e]] ought to be an unlabelled expression, in which case
+          it can be interpreted as a string label payload. *)
        | Nolabel, hd -> Some (`String_expr hd), tl)
     | [] -> None, []
   in

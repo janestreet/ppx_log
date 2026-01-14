@@ -4,44 +4,52 @@ open! Ppxlib_with_sexp
 
 type t =
   { label : label
+  ; label_is_optional : bool
   ; data : Tag_data.t loc
   }
 [@@deriving fields ~getters]
 
 let compare_label = Comparable.lift [%compare: string] ~f:label
-let sexp_of_t { label; data } = [%sexp ((label, data.txt) : string * Tag_data.t)]
+
+let sexp_of_t { label; label_is_optional; data } =
+  let label = if label_is_optional then "?" ^ label else label in
+  [%sexp ((label, data.txt) : string * Tag_data.t)]
+;;
+
 let inferred_label = Pprintast.string_of_expression
 
 let parse_arg (label, e) =
-  let loc = { e.pexp_loc with loc_ghost = true } in
   let module Expression_desc = Ppxlib_jane.Shim.Expression_desc in
-  let label =
+  let label, label_is_optional =
     match label, Expression_desc.of_parsetree ~loc:e.pexp_loc e.pexp_desc with
     | ( Nolabel
       , Pexp_constraint (expr, (_ : core_type option), (_ : Ppxlib_jane.Shim.Modes.t)) )
-      -> inferred_label expr
-    | Nolabel, (_ : Expression_desc.t) | Labelled "_", (_ : Expression_desc.t) -> ""
-    | Labelled label, (_ : Expression_desc.t) -> label
-    | Optional (_ : label), (_ : Expression_desc.t) ->
-      Location.raise_errorf ~loc "optional argument not allowed here"
+      -> inferred_label expr, false
+    | Nolabel, (_ : Expression_desc.t) | Labelled "_", (_ : Expression_desc.t) ->
+      "", false
+    | Labelled label, (_ : Expression_desc.t) -> label, false
+    | Optional label, (_ : Expression_desc.t) -> label, true
   in
-  { label; data = Tag_data.parse e }
+  { label; label_is_optional; data = Tag_data.parse e }
 ;;
 
 let render_list ts ~loc =
-  (* We have to render the whole list of [Log_tag.t]s into one expression, vs. creating
-     a list of expressions, because that avoids us having to do some kind of
+  (* We have to render the whole list of [Log_tag.t]s into one expression, vs. creating a
+     list of expressions, because that avoids us having to do some kind of
      [List.filter_opt] in the generated code. *)
-  List.fold (List.rev ts) ~init:[%expr []] ~f:(fun acc { label; data } ->
-    let label = Ast_builder.Default.estring label ~loc:data.loc in
-    match Tag_data.render data with
-    | `Tag, data ->
-      [%expr { Ppx_log_types.Log_tag.name = [%e label]; data = [%e data] } :: [%e acc]]
-    | `Tag_option, data ->
-      [%expr
-        match [%e data], [%e acc] with
-        | None, tl -> tl
-        | Some data, tl -> { Ppx_log_types.Log_tag.name = [%e label]; data } :: tl])
+  List.fold
+    (List.rev ts)
+    ~init:[%expr []]
+    ~f:(fun acc { label; label_is_optional; data } ->
+      let label = Ast_builder.Default.estring label ~loc:data.loc in
+      match Tag_data.render data ~label_is_optional with
+      | `Tag, data ->
+        [%expr { Ppx_log_types.Log_tag.name = [%e label]; data = [%e data] } :: [%e acc]]
+      | `Tag_option, data ->
+        [%expr
+          match [%e data], [%e acc] with
+          | None, tl -> tl
+          | Some data, tl -> { Ppx_log_types.Log_tag.name = [%e label]; data } :: tl])
 ;;
 
 let%expect_test "parsing / rendering examples" =
@@ -140,5 +148,30 @@ let%expect_test "parsing / rendering examples" =
      with
      | (None, tl) -> tl
      | (Some data, tl) -> { Ppx_log_types.Log_tag.name = "z"; data } :: tl)
+    |}];
+  test [%expr "unused" ?z:(z : int option)];
+  [%expect
+    {|
+    ((?z (Type_constrained z "int option")))
+    match ((match z with
+            | None -> None
+            | Some value ->
+                Some
+                  (Ppx_log_types.Tag_data.Sexp
+                     (((sexp_of_int)[@merlin.hide ]) value))), [])
+    with
+    | (None, tl) -> tl
+    | (Some data, tl) -> { Ppx_log_types.Log_tag.name = "z"; data } :: tl
+    |}];
+  test [%expr "unused" ?z:(z : (int option[@sexp.option]))];
+  [%expect
+    {|
+    ((?z (Type_constrained z "((int option)[@sexp.option ])")))
+    [{
+       Ppx_log_types.Log_tag.name = "z";
+       data =
+         ([%ocaml.error
+            "Do not specify both [@sexp.option] and an optional label (?label)."])
+     }]
     |}]
 ;;
