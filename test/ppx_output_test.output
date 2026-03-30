@@ -42,7 +42,7 @@ let test_locations () =
                  ~tags:[{
                           Ppx_log_types.Log_tag.name = "[%here ]";
                           data =
-                            (Sexp
+                            (Ppx_log_types.Tag_data.Sexp
                                (((Source_code_position.sexp_of_t)
                                   [@merlin.hide ])
                                   {
@@ -92,7 +92,7 @@ let test_locations () =
                  ~tags:[{
                           Ppx_log_types.Log_tag.name = "[%here ]";
                           data =
-                            (Sexp
+                            (Ppx_log_types.Tag_data.Sexp
                                (((Source_code_position.sexp_of_t)
                                   [@merlin.hide ])
                                   {
@@ -161,7 +161,10 @@ let test () =
            (`Structured
               (Ppx_log_types.Message_sexp.create
                  (Some (String_literal "test"))
-                 ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5) }]))
+                 ~tags:[{
+                          Ppx_log_types.Log_tag.name = "5";
+                          data = (Ppx_log_types.Tag_data.Int 5)
+                        }]))
            ((Ppx_log_types.Message_source.Private.code
                ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:15
                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
@@ -177,7 +180,10 @@ let test () =
           Ppx_log_syntax.Global.message ~level:`Debug
             (`Structured
                (Ppx_log_types.Message_sexp.create (Some (String msg))
-                  ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5) }]))
+                  ~tags:[{
+                           Ppx_log_types.Log_tag.name = "5";
+                           data = (Ppx_log_types.Tag_data.Int 5)
+                         }]))
             ((Ppx_log_types.Message_source.Private.code
                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:17
                 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
@@ -192,7 +198,10 @@ let test () =
           Ppx_log_syntax.Global.message ~level:`Info
             (`Structured
                (Ppx_log_types.Message_sexp.create None
-                  ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5) }]))
+                  ~tags:[{
+                           Ppx_log_types.Log_tag.name = "5";
+                           data = (Ppx_log_types.Tag_data.Int 5)
+                         }]))
             ((Ppx_log_types.Message_source.Private.code
                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:18
                 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
@@ -225,7 +234,9 @@ let test () =
              (`Structured
                 (Ppx_log_types.Message_sexp.create
                    (Some (String_literal "test"))
-                   ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5)
+                   ~tags:[{
+                            Ppx_log_types.Log_tag.name = "5";
+                            data = (Ppx_log_types.Tag_data.Int 5)
                           }]))
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
@@ -241,7 +252,9 @@ let test () =
            Ppx_log_syntax.Instance.message ~level:`Info log
              (`Structured
                 (Ppx_log_types.Message_sexp.create None
-                   ~tags:[{ Ppx_log_types.Log_tag.name = "5"; data = (Int 5)
+                   ~tags:[{
+                            Ppx_log_types.Log_tag.name = "5";
+                            data = (Ppx_log_types.Tag_data.Int 5)
                           }]))
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
@@ -279,17 +292,13 @@ let test () =
                                    | None -> None
                                    | Some value ->
                                        Some
-                                         (Ppx_log_types.Tag_data.Sexp
-                                            (((sexp_of_int)[@merlin.hide ])
-                                               value))),
+                                         (Ppx_log_types.Tag_data.Int value)),
                                    (match ((match None with
                                             | None -> None
                                             | Some value ->
                                                 Some
-                                                  (Ppx_log_types.Tag_data.Sexp
-                                                     (((sexp_of_int)
-                                                        [@merlin.hide ])
-                                                        value))), [])
+                                                  (Ppx_log_types.Tag_data.Int
+                                                     value)), [])
                                     with
                                     | (None, tl) -> tl
                                     | (Some data, tl) ->
@@ -438,9 +447,18 @@ let test_extensions () =
             ~module_name:Stdlib.__MODULE__)[@merlin.hide ]),
          (`Structured
             (Ppx_log_types.Message_sexp.create (Some (String_literal "hi"))
-               ~tags:[{ Ppx_log_types.Log_tag.name = "1"; data = (Int 1) };
-                     { Ppx_log_types.Log_tag.name = "2"; data = (Int 2) };
-                     { Ppx_log_types.Log_tag.name = "3"; data = (Int 3) }]))) in
+               ~tags:[{
+                        Ppx_log_types.Log_tag.name = "1";
+                        data = (Ppx_log_types.Tag_data.Int 1)
+                      };
+                     {
+                       Ppx_log_types.Log_tag.name = "2";
+                       data = (Ppx_log_types.Tag_data.Int 2)
+                     };
+                     {
+                       Ppx_log_types.Log_tag.name = "3";
+                       data = (Ppx_log_types.Tag_data.Int 3)
+                     }]))) in
      if ((Ppx_log_syntax.Global.would_log (Some `Error))[@merlin.hide ])
      then
        ((let ppx_log_statement () =

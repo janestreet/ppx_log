@@ -4,6 +4,25 @@ open! Async
 let log_output = Log.Output.stdout ~format:`Sexp_hum ()
 let create_log ~level = Log.create ~level ~output:[ log_output ] ~on_error:`Raise ()
 
+let%expect_test "basic logging" =
+  Log.Global.set_time_source
+    (Time_source.create () ~now:Time_ns.epoch |> Time_source.to_synchronous);
+  [%log "test"];
+  [%log.debug "test" (1 : int)];
+  [%log.info "test" (2 : int)];
+  [%log.warn "test" (3 : int)];
+  [%log.error "test" (4 : int)];
+  let%bind () = Log.Global.flushed () in
+  [%expect
+    {|
+    1969-12-31 19:00:00.000000-05:00 test
+    1969-12-31 19:00:00.000000-05:00 Info (test(2 2))
+    1969-12-31 19:00:00.000000-05:00 Warn (test(3 3))
+    1969-12-31 19:00:00.000000-05:00 Error (test(4 4))
+    |}];
+  return ()
+;;
+
 let%expect_test "logging with extra attributes" =
   let time = Time_float.of_span_since_epoch (sec 1.) in
   let my_level = `Error in
@@ -151,7 +170,7 @@ let%expect_test "logging with raw_message and `Raw format" =
   [%expect
     {|
     ((hi (i 1))
-     ((source "ppx/ppx_log/test/test_log_extensions.ml:137 (Ppx_log_test)")))
+     ((source "ppx/ppx_log/test/test_log_extensions.ml:156 (Ppx_log_test)")))
     |}];
   return ()
 ;;
@@ -159,6 +178,13 @@ let%expect_test "logging with raw_message and `Raw format" =
 let%expect_test "sexp option" =
   let something = Some 5 in
   [%log (something : (int option[@sexp.option])) (None : (int option[@sexp.option]))];
+  [%expect {| (something 5) |}];
+  return ()
+;;
+
+let%expect_test "sexp or_null" =
+  let something = This 5 in
+  [%log (something : (int or_null[@sexp.or_null])) (Null : (int or_null[@sexp.or_null]))];
   [%expect {| (something 5) |}];
   return ()
 ;;
@@ -193,6 +219,17 @@ let%expect_test "optional tags are the same as sexp options" =
   return ()
 ;;
 
+let%expect_test "optional tags are the same as sexp or_nulls" =
+  [%log
+    ""
+      ~this:(This 1 : (int or_null[@sexp.or_null]))
+      ?this_opt:(This 1 : int or_null)
+      ~null:(Null : (int or_null[@sexp.or_null]))
+      ?null_opt:(Null : int or_null)];
+  [%expect {| ((this 1)(this_opt 1)) |}];
+  return ()
+;;
+
 let%expect_test "logging nothing" =
   [%log "" ~_:(None : int option)];
   [%expect {| () |}];
@@ -218,6 +255,17 @@ module%test [@name "json"] _ = struct
     [%log (my_t : (t option[@j] [@sexp.option]))];
     [%expect {| (my_t(Object((users(Array((String me)(String you))))))) |}];
     [%log (None : (t option[@j] [@sexp.option]))];
+    [%expect {| () |}];
+    Deferred.unit
+  ;;
+
+  let%expect_test "with sexp or_null" =
+    (* note: [jsonaf_of] is not derived for [or_null], this test just shows the json
+       representation of the bare [t] which [@sexp.or_null] renders [This] to *)
+    let my_t = This { users = [ "me"; "you" ] } in
+    [%log (my_t : (t or_null[@j] [@sexp.or_null]))];
+    [%expect {| (my_t(Object((users(Array((String me)(String you))))))) |}];
+    [%log (Null : (t or_null[@j] [@sexp.or_null]))];
     [%expect {| () |}];
     Deferred.unit
   ;;

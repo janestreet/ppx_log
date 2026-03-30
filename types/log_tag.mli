@@ -14,5 +14,5 @@ module Verbose : sig
 end
 
 module For_message_sexp : sig
-  type nonrec t = t [@@deriving sexp_of]
+  type nonrec t = t [@@deriving sexp_of ~stackify]
 end

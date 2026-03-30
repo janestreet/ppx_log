@@ -6,6 +6,7 @@ module Level : sig
   type t =
     [ `Debug
     | `Info
+    | `Warn
     | `Error
     ]
   [@@deriving enumerate]

@@ -9,23 +9,24 @@ type t =
   | Bool of bool
   | Sexp of Sexp.t
   | Json of Jsonaf.t
-[@@deriving sexp_of, variants]
+[@@deriving sexp_of ~stackify, variants]
 
 module With_type_label = struct
-  type nonrec t = t [@@deriving sexp_of]
+  type nonrec t = t [@@deriving sexp_of ~stackify]
 end
 
 module Without_type_label = struct
   type nonrec t = t
 
-  let sexp_of_t = function
-    | Int x -> [%sexp_of: int] x
-    | Char x -> [%sexp_of: char] x
-    | Float x -> [%sexp_of: float] x
-    | String x -> [%sexp_of: string] x
-    | Bool x -> [%sexp_of: bool] x
+  let%template[@alloc a = (heap, stack)] sexp_of_t t =
+    match[@exclave_if_stack a] t with
+    | Int x -> ([%sexp_of: int] [@alloc a]) x
+    | Char x -> ([%sexp_of: char] [@alloc a]) x
+    | Float x -> ([%sexp_of: float] [@alloc a]) x
+    | String x -> ([%sexp_of: string] [@alloc a]) x
+    | Bool x -> ([%sexp_of: bool] [@alloc a]) x
     | Sexp x -> x
-    | Json x -> [%sexp_of: Jsonaf.t] x
+    | Json x -> ([%sexp_of: Jsonaf.t] [@alloc a]) x
   ;;
 
   let to_string = function
