@@ -8,4 +8,5 @@
    ppx_sexp_message.expander ppx_string ppxlib stdio)
  (preprocess
   (pps ppx_compare ppx_enumerate ppx_expect ppx_fields_conv ppx_let
-    ppx_sexp_conv ppx_sexp_value ppxlib.metaquot)))
+    ppx_sexp_conv ppx_sexp_value ppx_template ppxlib.metaquot
+    -compare-require-explicit-locality)))

@@ -16,6 +16,7 @@ let empty_attr name =
 
 let omit_nil_attr = empty_attr "sexp.omit_nil"
 let option_attr = empty_attr "sexp.option"
+let or_null_attr = empty_attr "sexp.or_null"
 
 let parse e =
   let t =
@@ -60,15 +61,46 @@ let omit_nil_expr expr ctyp ~loc =
       | sexp -> Some (Ppx_log_types.Tag_data.Sexp sexp)] )
 ;;
 
+let tag_expr_of_primitive typ value ~loc =
+  match typ with
+  | [%type: int] -> `Tag [%expr Ppx_log_types.Tag_data.Int [%e value]]
+  | [%type: string] -> `Tag [%expr Ppx_log_types.Tag_data.String [%e value]]
+  | [%type: float] -> `Tag [%expr Ppx_log_types.Tag_data.Float [%e value]]
+  | [%type: char] -> `Tag [%expr Ppx_log_types.Tag_data.Char [%e value]]
+  | [%type: bool] -> `Tag [%expr Ppx_log_types.Tag_data.Bool [%e value]]
+  | _ -> `Not_a_primitive
+;;
+
 let sexp_option_expr expr ~type_without_option:typ ~loc =
+  let tag_expr_of_some value =
+    match tag_expr_of_primitive typ value ~loc with
+    | `Tag tag -> tag
+    | `Not_a_primitive ->
+      [%expr
+        Ppx_log_types.Tag_data.Sexp
+          ([%e Ppx_sexp_conv_expander.Sexp_of.core_type typ ~stackify:false] value)]
+  in
   ( `Tag_option
   , [%expr
       match [%e expr] with
       | None -> None
-      | Some value ->
-        Some
-          (Ppx_log_types.Tag_data.Sexp
-             ([%e Ppx_sexp_conv_expander.Sexp_of.core_type typ ~stackify:false] value))] )
+      | Some value -> Some [%e tag_expr_of_some (evar ~loc "value")]] )
+;;
+
+let sexp_or_null_expr expr ~type_without_or_null:typ ~loc =
+  let tag_expr_of_this value =
+    match tag_expr_of_primitive typ value ~loc with
+    | `Tag tag -> tag
+    | `Not_a_primitive ->
+      [%expr
+        Ppx_log_types.Tag_data.Sexp
+          ([%e Ppx_sexp_conv_expander.Sexp_of.core_type typ ~stackify:false] value)]
+  in
+  ( `Tag_option
+  , [%expr
+      match [%e expr] with
+      | Null -> None
+      | This value -> Some [%e tag_expr_of_this (evar ~loc "value")]] )
 ;;
 
 let json_option_expr expr ~type_without_option:typ ~loc =
@@ -79,6 +111,14 @@ let json_option_expr expr ~type_without_option:typ ~loc =
       | Some value -> Some (Ppx_log_types.Tag_data.Json ([%jsonaf_of: [%t typ]] value))] )
 ;;
 
+let json_or_null_expr expr ~type_without_or_null:typ ~loc =
+  ( `Tag_option
+  , [%expr
+      match [%e expr] with
+      | Null -> None
+      | This value -> Some (Ppx_log_types.Tag_data.Json ([%jsonaf_of: [%t typ]] value))] )
+;;
+
 let default_non_optional ~loc expr ctyp =
   match Attribute.consume log_json_attribute ctyp with
   | Some (ctyp, ()) ->
@@ -86,30 +126,71 @@ let default_non_optional ~loc expr ctyp =
   | None ->
     (match Attribute.get omit_nil_attr ctyp with
      | Some () -> omit_nil_expr expr ctyp ~loc
-     | None -> `Tag, [%expr Sexp [%e sexp_of_constraint ~loc expr ctyp]])
+     | None ->
+       `Tag, [%expr Ppx_log_types.Tag_data.Sexp [%e sexp_of_constraint ~loc expr ctyp]])
+;;
+
+let overspecified_optional_constraint ~loc =
+  ( `Tag
+  , Ast_builder.Default.pexp_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Do not specify both [@sexp.option] and an optional label (?label).") )
+;;
+
+let overspecified_nullable_constraint ~loc =
+  ( `Tag
+  , Ast_builder.Default.pexp_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Do not specify both [@sexp.or_null] and an optional label (?label).") )
+;;
+
+let is_json ctyp =
+  match Attribute.get log_json_attribute ctyp with
+  | Some () -> `Is_json
+  | None -> `Not_json
+;;
+
+let is_optional ~label_is_optional ctyp =
+  match label_is_optional, Attribute.get option_attr ctyp with
+  | true, Some () -> `Overspecified
+  | true, None | false, Some () -> `Optional
+  | false, None -> `Not_optional
+;;
+
+let is_nullable ~label_is_optional ctyp =
+  match label_is_optional, Attribute.get or_null_attr ctyp with
+  | true, Some () -> `Overspecified
+  | true, None | false, Some () -> `Nullable
+  | false, None -> `Not_nullable
 ;;
 
 let type_labelled_constraint ~label_is_optional ~loc expr ctyp =
   match ctyp with
-  | [%type: int] -> `Tag, [%expr Int [%e expr]]
-  | [%type: string] -> `Tag, [%expr String [%e expr]]
-  | [%type: float] -> `Tag, [%expr Float [%e expr]]
-  | [%type: char] -> `Tag, [%expr Char [%e expr]]
-  | [%type: bool] -> `Tag, [%expr Bool [%e expr]]
+  | [%type: int] -> `Tag, [%expr Ppx_log_types.Tag_data.Int [%e expr]]
+  | [%type: string] -> `Tag, [%expr Ppx_log_types.Tag_data.String [%e expr]]
+  | [%type: float] -> `Tag, [%expr Ppx_log_types.Tag_data.Float [%e expr]]
+  | [%type: char] -> `Tag, [%expr Ppx_log_types.Tag_data.Char [%e expr]]
+  | [%type: bool] -> `Tag, [%expr Ppx_log_types.Tag_data.Bool [%e expr]]
   | [%type: [%t? type_without_option] option] ->
-    (match label_is_optional, Attribute.get option_attr ctyp with
-     | true, Some () ->
-       ( `Tag
-       , Ast_builder.Default.pexp_extension
-           ~loc
-           (Location.error_extensionf
-              ~loc
-              "Do not specify both [@sexp.option] and an optional label (?label).") )
-     | true, None | false, Some () ->
-       (match Attribute.get log_json_attribute ctyp with
-        | Some () -> json_option_expr expr ~type_without_option ~loc
-        | None -> sexp_option_expr expr ~type_without_option ~loc)
-     | false, None -> default_non_optional ~loc expr ctyp)
+    (match is_optional ~label_is_optional ctyp with
+     | `Overspecified -> overspecified_optional_constraint ~loc
+     | `Optional ->
+       (match is_json ctyp with
+        | `Is_json -> json_option_expr expr ~type_without_option ~loc
+        | `Not_json -> sexp_option_expr expr ~type_without_option ~loc)
+     | `Not_optional -> default_non_optional ~loc expr ctyp)
+  | [%type: [%t? type_without_or_null] or_null] ->
+    (match is_nullable ~label_is_optional ctyp with
+     | `Overspecified -> overspecified_nullable_constraint ~loc
+     | `Nullable ->
+       (match is_json ctyp with
+        | `Is_json -> json_or_null_expr expr ~type_without_or_null ~loc
+        | `Not_json -> sexp_or_null_expr expr ~type_without_or_null ~loc)
+     | `Not_nullable -> default_non_optional ~loc expr ctyp)
   | _ -> default_non_optional ~loc expr ctyp
 ;;
 

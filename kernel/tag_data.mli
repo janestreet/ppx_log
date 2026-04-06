@@ -18,7 +18,8 @@ type t =
 val parse : expression -> t loc
 
 (** Renders the tag into an expression either of type [Log_tag.t] or type
-    [Log_tag.t option], depending on the attributes (@sexp.option and \@sexp.omit_nil).
+    [Log_tag.t option], depending on the attributes (@sexp.option, \@sexp.or_null, and
+    \@sexp.omit_nil).
 
     Example output: [Int 123] for constant tags, [Sexp ([%sexp_of: typ] expr)] for types
     that aren’t specially handled *)

@@ -41,7 +41,7 @@ val suffix : string = "CE"
 # [%log "message" (year : int) ~suffix];
 (message(year 2014)(suffix CE))
 - : unit = ()
-# [%log "with_optional" 
+# [%log "with_optional"
         ~id1:(None : int option[@sexp.option])
         ~id2:(Some 123 : int option[@sexp.option])
         ~id3:(Some 456 : int option[@sexp.omit_nil])]
@@ -63,16 +63,16 @@ parentheses.
 # let s = [%sexp (1234 : int)] in [%log.sexp s]
 1234
 - : unit = ()
-# [%log.info_format "hello %s" "world"] 
+# [%log.info_format "hello %s" "world"]
 hello world
 - : unit = ()
-# let i = 3 in [%log.info_string "hello %{i#Int}"] 
+# let i = 3 in [%log.info_string "hello %{i#Int}"]
 hello 3
 - : unit = ()
 # [%log "hello" (3 : int)]
 (hello(3 3))
 - : unit = ()
-# [%log "hello" (3 : int) [@@legacy_tag_parentheses]] 
+# [%log "hello" (3 : int) [@@legacy_tag_parentheses]]
 (hello((3 3)))
 - : unit = ()
 ```
@@ -112,7 +112,7 @@ against accidental uses of global logging in your code.
 # Advanced usage
 ## Structural preservation
 ppx_log's normal usage tries to preserve certain structural information about its message
-payload. For instance, 
+payload. For instance,
 
 ```ocaml
 [%log "message" (year : int) ~suffix];
@@ -140,6 +140,30 @@ let my_t = { users = [ "me"; "you" ] }
 - : unit = ()
 ```
 
+## Raw messages
+
+Use `[%log.make_raw ...]` to create a raw message, and `[%log.raw ...]` to log it. Raw
+messages preserve structural information and can be serialized or passed around before
+logging.
+
+```ocaml
+# let raw = [%log.make_raw "event" ~user:("alice" : string) ~code:(200 : int)] in
+  [%log.raw raw];
+(event(user alice)(code 200))
+- : unit = ()
+```
+
+Raw messages are useful when you want to separate message creation from logging, or to
+embed structured log data in error types. Use
+`Ppx_log_types.{Raw_message,Message_data}.sexp_of_t_hum` to serialize a raw message:
+
+```ocaml
+# let (_raw_source_position, raw_data) = [%log.make_raw "event" ~user:("alice" : string) ~code:(200 : int)] in
+  Ppx_log_types.Message_data.sexp_of_t_hum raw_data |> Core.print_s;
+(event (user alice) (code 200))
+- : unit = ()
+```
+
 ## Source code position output
 `ppx_log` can add source code position to each logged message in two ways. The legacy way
 is configurable at a library level by the `-log-source-position` switch and adds source
@@ -156,9 +180,9 @@ type that does not have source locations).
 In non-legacy usage, the source can be customized using `[@@loc]`:
 ```ocaml
 module Warning_kind = struct
-  type t = 
+  type t =
     | Long_async_cycle
-    | Falling_behind 
+    | Falling_behind
     [@@deriving sexp]
 end
 

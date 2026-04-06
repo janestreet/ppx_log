@@ -10,7 +10,8 @@ type t =
 [@@deriving fields ~getters]
 
 (** order by the [label]s *)
-val compare_label : t -> t -> int
+val%template compare_label : t @ m -> t @ m -> int
+[@@mode m = (local, global)]
 
 (** See tests in the implementation for more examples.
 

@@ -12,4 +12,4 @@ type t =
   | `Object of (string * t) list
   | `Array of t list
   ]
-[@@deriving sexp_of]
+[@@deriving sexp_of ~stackify]

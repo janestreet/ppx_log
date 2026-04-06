@@ -5,6 +5,7 @@ module Level = struct
   type t =
     [ `Debug
     | `Info
+    | `Warn
     | `Error
     ]
   [@@deriving enumerate]
@@ -13,12 +14,14 @@ module Level = struct
     match t with
     | `Debug -> [%expr `Debug]
     | `Info -> [%expr `Info]
+    | `Warn -> [%expr `Warn]
     | `Error -> [%expr `Error]
   ;;
 
   let to_string = function
     | `Debug -> "debug"
     | `Info -> "info"
+    | `Warn -> "warn"
     | `Error -> "error"
   ;;
 end
