@@ -51,6 +51,10 @@ let log_json_attribute =
   Attribute.declare "@j" Attribute.Context.core_type Ast_pattern.(pstr nil) ()
 ;;
 
+let list_attribute =
+  Attribute.declare "@list" Attribute.Context.core_type Ast_pattern.(pstr nil) ()
+;;
+
 (* [omit_nil_expr] and [sexp_option_expr] are roughly copied from
    [ppx_sexp_message_expander]. *)
 let omit_nil_expr expr ctyp ~loc =
@@ -119,6 +123,14 @@ let json_or_null_expr expr ~type_without_or_null:typ ~loc =
       | This value -> Some (Ppx_log_types.Tag_data.Json ([%jsonaf_of: [%t typ]] value))] )
 ;;
 
+let list_expr expr ~element_type ~loc =
+  let sexp_of = Ppx_sexp_conv_expander.Sexp_of.core_type element_type ~stackify:false in
+  ( `Tag_list
+  , [%expr
+      List.map [%e expr] ~f:(fun element ->
+        Ppx_log_types.Tag_data.Sexp ([%e sexp_of] element))] )
+;;
+
 let default_non_optional ~loc expr ctyp =
   match Attribute.consume log_json_attribute ctyp with
   | Some (ctyp, ()) ->
@@ -168,6 +180,12 @@ let is_nullable ~label_is_optional ctyp =
   | false, None -> `Not_nullable
 ;;
 
+let is_list ctyp =
+  match Attribute.get list_attribute ctyp with
+  | Some () -> `Is_list
+  | None -> `Not_list
+;;
+
 let type_labelled_constraint ~label_is_optional ~loc expr ctyp =
   match ctyp with
   | [%type: int] -> `Tag, [%expr Ppx_log_types.Tag_data.Int [%e expr]]
@@ -175,6 +193,10 @@ let type_labelled_constraint ~label_is_optional ~loc expr ctyp =
   | [%type: float] -> `Tag, [%expr Ppx_log_types.Tag_data.Float [%e expr]]
   | [%type: char] -> `Tag, [%expr Ppx_log_types.Tag_data.Char [%e expr]]
   | [%type: bool] -> `Tag, [%expr Ppx_log_types.Tag_data.Bool [%e expr]]
+  | [%type: [%t? type_without_list] list] ->
+    (match is_list ctyp with
+     | `Is_list -> list_expr expr ~element_type:type_without_list ~loc
+     | `Not_list -> default_non_optional ~loc expr ctyp)
   | [%type: [%t? type_without_option] option] ->
     (match is_optional ~label_is_optional ctyp with
      | `Overspecified -> overspecified_optional_constraint ~loc

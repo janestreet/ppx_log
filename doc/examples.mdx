@@ -42,10 +42,17 @@ val suffix : string = "CE"
 (message(year 2014)(suffix CE))
 - : unit = ()
 # [%log "with_optional"
-        ~id1:(None : int option[@sexp.option])
+        ~id1:(Null : int or_null[@sexp.or_null])
         ~id2:(Some 123 : int option[@sexp.option])
         ~id3:(Some 456 : int option[@sexp.omit_nil])]
 (with_optional(id2 123)(id3(456)))
+- : unit = ()
+```
+
+It additionally permits optional labels instead of `[@sexp.option]`:
+```ocaml
+# [%log "with_optional" ?id1:(None : int option) ?id2:(Some 123 : int option)]
+(with_optional(id2 123))
 - : unit = ()
 ```
 
@@ -189,4 +196,31 @@ end
 let emit_warning ~(here : [%call_pos]) kind =
   [%log.info "Warning" (kind : Warning_kind.t) [@@loc here]]
 ;;
+```
+
+## [@list] tags
+`ppx_log` allows duplicate tags, which can be useful for matching on one of many values in a
+log message after it's been written.  The legacy way of doing this was by manually constructing
+a `(string * string) list` and using it to populate `[@@tags]`.  Instead, you can annotate a
+`_ list` type in the message with `[@list]` and one tag will be created per entry in the list.
+
+```ocaml
+# let ids = [ "abc"; "123" ] in
+  [%log "one_tag_per_id" (ids : (string list[@list]))]
+(one_tag_per_id(ids abc)(ids 123))
+- : unit = ()
+```
+
+Empty lists produce no tags.  You can use labels to rename the tag produced.
+
+```ocaml
+# let nothing = [] in
+  let ids = [ "abc"; "123" ] in
+  let users = [ "alice"; "bob" ] in
+  [%log "advanced_lists"
+    (nothing : (int list[@list]))
+    ~renamed_id:(ids : (string list[@list]))
+    ~_:(users : (string list[@list]))]
+(advanced_lists(renamed_id abc)(renamed_id 123)alice bob)
+- : unit = ()
 ```

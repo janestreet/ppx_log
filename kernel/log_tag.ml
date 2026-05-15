@@ -51,7 +51,12 @@ let render_list ts ~loc =
         [%expr
           match [%e data], [%e acc] with
           | None, tl -> tl
-          | Some data, tl -> { Ppx_log_types.Log_tag.name = [%e label]; data } :: tl])
+          | Some data, tl -> { Ppx_log_types.Log_tag.name = [%e label]; data } :: tl]
+      | `Tag_list, data ->
+        [%expr
+          List.map [%e data] ~f:(fun data ->
+            { Ppx_log_types.Log_tag.name = [%e label]; data })
+          @ [%e acc]])
 ;;
 
 let%expect_test "parsing / rendering examples" =
