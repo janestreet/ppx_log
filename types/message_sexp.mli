@@ -11,7 +11,7 @@ end
 
 (** A [t] represents a [%message] sexp with additional structured information that
     distinguishes the message label from the typed list of tags that follow. *)
-type t
+type t : immutable_data
 
 val create
   :  ?legacy_render_with_additional_parentheses:bool

@@ -27,9 +27,7 @@ let test_locations () =
                         }]))
            ((Ppx_log_types.Message_source.Private.code
                ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:5
-               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                never]
-         [@@ocaml.local never][@@ocaml.specialise never] in
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
        ((ppx_log_statement ())[@nontail ])))
     [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
@@ -55,9 +53,7 @@ let test_locations () =
                         }]))
            ((Ppx_log_types.Message_source.Private.code
                ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:6
-               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                never]
-         [@@ocaml.local never][@@ocaml.specialise never] in
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
        ((ppx_log_statement ())[@nontail ])))
     [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
@@ -76,9 +72,7 @@ let test_locations () =
                         }]))
            ((Ppx_log_types.Message_source.Private.code
                ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:7
-               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                never]
-         [@@ocaml.local never][@@ocaml.specialise never] in
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
        ((ppx_log_statement ())[@nontail ])))
     [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
@@ -105,9 +99,7 @@ let test_locations () =
                         }]))
            ((Ppx_log_types.Message_source.Private.code
                ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:8
-               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                never]
-         [@@ocaml.local never][@@ocaml.specialise never] in
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
        ((ppx_log_statement ())[@nontail ])))
     [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
@@ -126,9 +118,7 @@ let test_locations () =
                         }]))
            ((Ppx_log_types.Message_source.Private.code
                ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:9
-               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                never]
-         [@@ocaml.local never][@@ocaml.specialise never] in
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
        ((ppx_log_statement ())[@nontail ])))
     [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
@@ -147,9 +137,7 @@ let test_locations () =
               (Ppx_log_types.Message_sexp.create
                  (Some (String_literal "message")) ~tags:[]))
            ((Ppx_log_types.Message_source.Private.of_source_code_position
-               here)[@merlin.hide ])[@@ocaml.inline never][@@ocaml.local
-                                                            never][@@ocaml.specialise
-                                                                    never] in
+               here)[@merlin.hide ])[@@cold ] in
        ((ppx_log_statement ())[@nontail ]))
      [@merlin.hide ])
    else Ppx_log_syntax.Global.default)
@@ -167,9 +155,7 @@ let test () =
                         }]))
            ((Ppx_log_types.Message_source.Private.code
                ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:15
-               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                never]
-         [@@ocaml.local never][@@ocaml.specialise never] in
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
        ((ppx_log_statement ())[@nontail ])))
     [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
@@ -186,9 +172,7 @@ let test () =
                          }]))
             ((Ppx_log_types.Message_source.Private.code
                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:17
-                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                 never]
-          [@@ocaml.local never][@@ocaml.specialise never] in
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
         ((ppx_log_statement ())[@nontail ])))
      [@merlin.hide ])
    else Ppx_log_syntax.Global.default;
@@ -204,9 +188,7 @@ let test () =
                          }]))
             ((Ppx_log_types.Message_source.Private.code
                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:18
-                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                 never]
-          [@@ocaml.local never][@@ocaml.specialise never] in
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
         ((ppx_log_statement ())[@nontail ])))
      [@merlin.hide ])
    else Ppx_log_syntax.Global.default;
@@ -219,9 +201,7 @@ let test () =
                   (Some (String_literal "test")) ~tags:[]))
             ((Ppx_log_types.Message_source.Private.code
                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:19
-                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                 never]
-          [@@ocaml.local never][@@ocaml.specialise never] in
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
         ((ppx_log_statement ())[@nontail ])))
      [@merlin.hide ])
    else Ppx_log_syntax.Global.default;
@@ -241,8 +221,7 @@ let test () =
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                  ~pos_lnum:21 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
-           [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
-                                                        never] in
+           [@@cold ] in
          ((ppx_log_statement ())[@nontail ])))
       [@merlin.hide ])
     else Ppx_log_syntax.Instance.default;
@@ -259,8 +238,7 @@ let test () =
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                  ~pos_lnum:22 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
-           [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
-                                                        never] in
+           [@@cold ] in
          ((ppx_log_statement ())[@nontail ])))
       [@merlin.hide ])
     else Ppx_log_syntax.Instance.default;
@@ -276,8 +254,7 @@ let test () =
               ((Ppx_log_types.Message_source.Private.code
                   ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                   ~pos_lnum:24 ~module_name:Stdlib.__MODULE__)
-              [@merlin.hide ])[@@ocaml.inline never][@@ocaml.local never]
-            [@@ocaml.specialise never] in
+              [@merlin.hide ])[@@cold ] in
           ((ppx_log_statement ())[@nontail ])))
        [@merlin.hide ])
      else Ppx_log_syntax.Instance.default;
@@ -314,8 +291,7 @@ let test () =
               ((Ppx_log_types.Message_source.Private.code
                   ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                   ~pos_lnum:25 ~module_name:Stdlib.__MODULE__)
-              [@merlin.hide ])[@@ocaml.inline never][@@ocaml.local never]
-            [@@ocaml.specialise never] in
+              [@merlin.hide ])[@@cold ] in
           ((ppx_log_statement ())[@nontail ])))
        [@merlin.hide ])
      else Ppx_log_syntax.Global.default)))
@@ -329,9 +305,7 @@ let test_extensions () =
                 ((Ppx_log_types.Message_source.Private.code
                     ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                     ~pos_lnum:29 ~module_name:Stdlib.__MODULE__)
-                [@merlin.hide ])) "test %d" 3[@@ocaml.inline never][@@ocaml.local
-                                                                    never]
-         [@@ocaml.specialise never] in
+                [@merlin.hide ])) "test %d" 3[@@cold ] in
        ((ppx_log_statement ())[@nontail ])))
     [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
@@ -344,8 +318,7 @@ let test_extensions () =
                 ((Ppx_log_types.Message_source.Private.code
                     ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                     ~pos_lnum:30 ~module_name:Stdlib.__MODULE__)
-                [@merlin.hide ])) "world %s" "yes"[@@ocaml.inline never]
-         [@@ocaml.local never][@@ocaml.specialise never] in
+                [@merlin.hide ])) "world %s" "yes"[@@cold ] in
        ((ppx_log_statement ())[@nontail ])))
     [@merlin.hide ])
   else Ppx_log_syntax.Global.default;
@@ -358,9 +331,7 @@ let test_extensions () =
             (`Sexp (((sexp_of_int)[@merlin.hide ]) 5))
             ((Ppx_log_types.Message_source.Private.code
                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:33
-                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                 never]
-          [@@ocaml.local never][@@ocaml.specialise never] in
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
         ((ppx_log_statement ())[@nontail ])))
      [@merlin.hide ])
    else Ppx_log_syntax.Instance.default;
@@ -370,9 +341,7 @@ let test_extensions () =
           Ppx_log_syntax.Instance.message log (`Sexp (generate_sexp ()))
             ((Ppx_log_types.Message_source.Private.code
                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:34
-                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@ocaml.inline
-                                                                 never]
-          [@@ocaml.local never][@@ocaml.specialise never] in
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
         ((ppx_log_statement ())[@nontail ])))
      [@merlin.hide ])
    else Ppx_log_syntax.Instance.default;
@@ -388,8 +357,7 @@ let test_extensions () =
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                  ~pos_lnum:36 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
-           [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
-                                                        never] in
+           [@@cold ] in
          ((ppx_log_statement ())[@nontail ])))
       [@merlin.hide ])
     else Ppx_log_syntax.Instance.default;
@@ -400,8 +368,7 @@ let test_extensions () =
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                  ~pos_lnum:37 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
-           [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
-                                                        never] in
+           [@@cold ] in
          ((ppx_log_statement ())[@nontail ])))
       [@merlin.hide ])
     else Ppx_log_syntax.Global.default;
@@ -412,8 +379,7 @@ let test_extensions () =
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                  ~pos_lnum:38 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
-           [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
-                                                        never] in
+           [@@cold ] in
          ((ppx_log_statement ())[@nontail ])))
       [@merlin.hide ])
     else Ppx_log_syntax.Global.default;
@@ -424,8 +390,7 @@ let test_extensions () =
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                  ~pos_lnum:39 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
-           [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
-                                                        never] in
+           [@@cold ] in
          ((ppx_log_statement ())[@nontail ])))
       [@merlin.hide ])
     else Ppx_log_syntax.Instance.default;
@@ -436,8 +401,7 @@ let test_extensions () =
              ((Ppx_log_types.Message_source.Private.code
                  ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
                  ~pos_lnum:40 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
-           [@@ocaml.inline never][@@ocaml.local never][@@ocaml.specialise
-                                                        never] in
+           [@@cold ] in
          ((ppx_log_statement ())[@nontail ])))
       [@merlin.hide ])
     else Ppx_log_syntax.Global.default;
@@ -466,12 +430,120 @@ let test_extensions () =
              (match raw_message with
               | (message_source, message_data) -> message_data)
              (match raw_message with
-              | (message_source, message_data) -> message_source)[@@ocaml.inline
-                                                                   never]
-           [@@ocaml.local never][@@ocaml.specialise never] in
+              | (message_source, message_data) -> message_source)[@@cold ] in
          ((ppx_log_statement ())[@nontail ]))
        [@merlin.hide ])
      else Ppx_log_syntax.Global.default)))
+let test_list_attr () =
+  let foos = [1; 2; 3] in
+  if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
+  then
+    (((let ppx_log_statement () =
+         Ppx_log_syntax.Global.message ~level:`Info
+           (`Structured
+              (Ppx_log_types.Message_sexp.create
+                 (Some (String_literal "processing"))
+                 ~tags:((List.map
+                           (List.map foos
+                              ~f:(fun element ->
+                                    Ppx_log_types.Tag_data.Sexp
+                                      (((sexp_of_int)[@merlin.hide ]) element)))
+                           ~f:(fun data ->
+                                 { Ppx_log_types.Log_tag.name = "foos"; data
+                                 }))
+                          @ [])))
+           ((Ppx_log_types.Message_source.Private.code
+               ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:47
+               ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
+       ((ppx_log_statement ())[@nontail ])))
+    [@merlin.hide ])
+  else Ppx_log_syntax.Global.default;
+  (let names = ["alice"; "bob"] in
+   if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
+   then
+     (((let ppx_log_statement () =
+          Ppx_log_syntax.Global.message ~level:`Info
+            (`Structured
+               (Ppx_log_types.Message_sexp.create
+                  (Some (String_literal "greeting"))
+                  ~tags:((List.map
+                            (List.map names
+                               ~f:(fun element ->
+                                     Ppx_log_types.Tag_data.Sexp
+                                       (((sexp_of_string)[@merlin.hide ])
+                                          element)))
+                            ~f:(fun data ->
+                                  {
+                                    Ppx_log_types.Log_tag.name = "names";
+                                    data
+                                  }))
+                           @ [])))
+            ((Ppx_log_types.Message_source.Private.code
+                ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml" ~pos_lnum:49
+                ~module_name:Stdlib.__MODULE__)[@merlin.hide ])[@@cold ] in
+        ((ppx_log_statement ())[@nontail ])))
+     [@merlin.hide ])
+   else Ppx_log_syntax.Global.default;
+   (let pairs = [(1, "one"); (2, "two")] in
+    if ((Ppx_log_syntax.Global.would_log (Some `Info))[@merlin.hide ])
+    then
+      (((let ppx_log_statement () =
+           Ppx_log_syntax.Global.message ~level:`Info
+             (`Structured
+                (Ppx_log_types.Message_sexp.create
+                   (Some (String_literal "pairs"))
+                   ~tags:((List.map
+                             (List.map pairs
+                                ~f:(fun element ->
+                                      Ppx_log_types.Tag_data.Sexp
+                                        (((fun (arg0__001_, arg1__002_) ->
+                                             let res0__003_ =
+                                               sexp_of_int arg0__001_
+                                             and res1__004_ =
+                                               sexp_of_string arg1__002_ in
+                                             Sexplib0.Sexp.List
+                                               [res0__003_; res1__004_])
+                                           [@merlin.hide ]) element)))
+                             ~f:(fun data ->
+                                   {
+                                     Ppx_log_types.Log_tag.name = "pairs";
+                                     data
+                                   }))
+                            @ [])))
+             ((Ppx_log_types.Message_source.Private.code
+                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
+                 ~pos_lnum:51 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
+           [@@cold ] in
+         ((ppx_log_statement ())[@nontail ])))
+      [@merlin.hide ])
+    else Ppx_log_syntax.Global.default;
+    (let log = force Log.Global.log in
+     if ((Ppx_log_syntax.Instance.would_log log (Some `Info))[@merlin.hide ])
+     then
+       ((let ppx_log_statement () =
+           Ppx_log_syntax.Instance.message ~level:`Info log
+             (`Structured
+                (Ppx_log_types.Message_sexp.create
+                   (Some (String_literal "instance"))
+                   ~tags:((List.map
+                             (List.map foos
+                                ~f:(fun element ->
+                                      Ppx_log_types.Tag_data.Sexp
+                                        (((sexp_of_int)[@merlin.hide ])
+                                           element)))
+                             ~f:(fun data ->
+                                   {
+                                     Ppx_log_types.Log_tag.name = "foos";
+                                     data
+                                   }))
+                            @ [])))
+             ((Ppx_log_types.Message_source.Private.code
+                 ~pos_fname:"ppx/ppx_log/test/ppx_output_test.ml"
+                 ~pos_lnum:53 ~module_name:Stdlib.__MODULE__)[@merlin.hide ])
+           [@@cold ] in
+         ((ppx_log_statement ())[@nontail ]))
+       [@merlin.hide ])
+     else Ppx_log_syntax.Instance.default)))
 let () = Ppx_inline_test_lib.unset_lib "ppx_log_test"
 let () =
   if Ppx_inline_test_lib.am_test_runner ()

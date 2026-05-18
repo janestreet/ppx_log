@@ -41,3 +41,14 @@ let test_extensions () =
   let raw_message = [%log.make_raw "hi" (1 : int) (2 : int) (3 : int)] in
   [%log.error_raw raw_message]
 ;;
+
+let test_list_attr () =
+  let foos = [ 1; 2; 3 ] in
+  [%log.info "processing" (foos : (int list[@list]))];
+  let names = [ "alice"; "bob" ] in
+  [%log.info "greeting" (names : (string list[@list]))];
+  let pairs = [ 1, "one"; 2, "two" ] in
+  [%log.info "pairs" (pairs : ((int * string) list[@list]))];
+  let log = force Log.Global.log in
+  [%log.t.info log "instance" (foos : (int list[@list]))]
+;;
