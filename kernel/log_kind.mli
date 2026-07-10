@@ -6,6 +6,8 @@ type 'data t =
   [ `Global
   | `Explicit_global
   | `Instance of 'data
+  | `Portable_global
+  | `Portable_instance of 'data
   ]
 [@@deriving enumerate]
 

@@ -4,15 +4,3 @@
    ppx_log_lib_with_source_pos)
  (preprocess
   (pps ppx_jane ppx_expect ppx_let ppx_jsonaf_conv)))
-
-(rule
- (deps
-  (:first_dep ppx_output_test.ml.pp)
-  ppx_output_test.output
-  %{workspace_root}/app/make-corrected-file/bin/main.exe
-  %{workspace_root}/bin/apply-style
-  jbuild)
- (action
-  (bash
-    "cat <(echo '(* -*- mode: tuareg; -*- *)') %{first_dep}  | \\\n%{workspace_root}/app/make-corrected-file/bin/main.exe ppx_output_test.output"))
- (alias runtest))
