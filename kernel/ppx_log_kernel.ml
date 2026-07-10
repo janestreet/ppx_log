@@ -49,7 +49,7 @@ let correct_and_expand
 let ext kind =
   let name = Extension_kind.name kind in
   match kind.log_kind with
-  | `Global | `Instance () ->
+  | `Global | `Instance () | `Portable_global | `Portable_instance () ->
     Extension.declare name Extension.Context.expression pattern (expand kind)
   | `Explicit_global ->
     let corrected_name = Extension_kind.name { kind with log_kind = `Global } in

@@ -68,9 +68,13 @@ let create
   let log, args =
     match log_kind with
     | `Global | `Explicit_global -> `Global, Extension_payload.Expression args
+    | `Portable_global -> `Portable_global, Extension_payload.Expression args
     | `Instance () ->
       Ast_pattern.(parse (pexp_apply __ __)) loc args (fun log_expr args ->
         `Instance log_expr, Extension_payload.Args args)
+    | `Portable_instance () ->
+      Ast_pattern.(parse (pexp_apply __ __)) loc args (fun log_expr args ->
+        `Portable_instance log_expr, Extension_payload.Args args)
   in
   { format; log; args; level; time; legacy_tags; loc_override = loc_attr; loc }
 ;;

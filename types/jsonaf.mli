@@ -3,7 +3,7 @@
 open! Base
 open! Import
 
-type t =
+type t : immutable_data =
   [ `Null
   | `False
   | `True
